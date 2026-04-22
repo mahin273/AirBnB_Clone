@@ -4,7 +4,7 @@ import type{ Request, Response, NextFunction } from "express";
 
 
 /**
- * 
+ *
  * @param schema - zod schema to validate request body
  * @returns - Middleware function to validate the request body
  */

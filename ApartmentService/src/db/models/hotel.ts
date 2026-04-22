@@ -1,15 +1,15 @@
 import { Model, type CreationOptional, type InferAttributes, type InferCreationAttributes } from 'sequelize';
 import sequelize from './sequelize.ts';
 class Hotel extends Model<InferAttributes<Hotel>,InferCreationAttributes<Hotel>>{
-  declare id:CreationOptional<number>;
+  declare id: CreationOptional<number>;
   declare name: string;
   declare address: string;
-  declare loction: string;
+  declare location: string;
   declare country: string;
   declare createdAt: CreationOptional<Date>;
   declare updatedAt: CreationOptional<Date>;
-  declare rating: number;
-  declare ratingCount: number;
+  declare rating: CreationOptional<number>;
+  declare ratingCount: CreationOptional<number>;
 }
 
 Hotel.init({
@@ -26,7 +26,7 @@ Hotel.init({
     type: 'VARCHAR(255)',
     allowNull: false
   },
-  loction: {
+  location: {
     type: 'VARCHAR(100)',
     allowNull: false
   },

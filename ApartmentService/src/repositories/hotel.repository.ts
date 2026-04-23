@@ -1,6 +1,6 @@
 import logger from '../config/logger.ts';
 import Hotel from '../db/models/hotel.ts';
-import type{ createHotelDto } from '../dto/hotel.dto.ts';
+import type { createHotelDto } from '../dto/hotel.dto.ts';
 import { NotFoundError } from '../utils/errors/app.error.ts';
 
 export async function createHotel(hotelData:createHotelDto){
@@ -21,5 +21,15 @@ export async function getHotelById(id:number){
   if(!hotel){
     throw new NotFoundError();
   }
+  logger.info(`Hotel fetched successfully with id: ${id}`);
   return hotel;
+}
+
+export async function getAllHotels(){
+const hotels = await Hotel.findAll();
+if(!hotels){
+  throw new NotFoundError();
+}
+logger.info(`Hotels Found:${hotels.length}`);
+return hotels;
 }

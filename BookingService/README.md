@@ -1,11 +1,6 @@
-# Express TypeScript Template
+# AirBnB Booking Service
 
-A Express.js starter template built with TypeScript. Ships with structured logging, request tracing, input validation, versioned routing, and a scalable project architecture.
-
----
-
-
-
+A Express.js service for booking properties built with TypeScript.
 
 
 ### Prerequisites
@@ -17,8 +12,8 @@ A Express.js starter template built with TypeScript. Ships with structured loggi
 
 ```bash
 # Clone the repository
-git clone https://github.com/mahin273/Express_Typescript_Template.git
-cd Express_Typescript_Template
+git clone https://github.com/mahin273/AirBnB_Booking_Service.git
+cd AirBnB_Booking_Service
 
 # Install dependencies
 npm install
@@ -46,5 +41,3 @@ The server will start at `http://localhost:3000`.
 ```bash
 curl http://localhost:3000/api/v1/ping/1
 ```
-
----

@@ -1,11 +1,12 @@
 {
   // File Inclusion
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "prisma/**/*"],
   "exclude": ["node_modules"],
 
   "compilerOptions": {
     // File Layout
-    "rootDir": "./src",
+    // "rootDir": "./src",
+    "rootDir": ".",
     "outDir": "./dist",
     "allowImportingTsExtensions": true,
     "rewriteRelativeImportExtensions": true,

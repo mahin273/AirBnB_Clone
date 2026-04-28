@@ -4,8 +4,7 @@
 // Get a free hosted Postgres database in seconds: `npx create-db`
 
 generator client {
-  provider = "prisma-client"
-  output   = "../generated/prisma"
+  provider = "prisma-client-js"
 }
 
 datasource db {
@@ -24,9 +23,17 @@ model Booking{
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   bookingAmount Int
-  bookingStatus BookingStatus
+  bookingStatus BookingStatus @default(PENDING)
   totalGuests Int
+  idempotencyKeyId Int? @unique
+  idempotencyKey IdempotencyKey? @relation(fields: [idempotencyKeyId], references: [id])
 
+}
 
-
+model IdempotencyKey{
+  id Int @id @default(autoincrement())
+  key String @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  booking  Booking?
 }

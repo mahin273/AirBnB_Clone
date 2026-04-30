@@ -11,10 +11,11 @@
     "allowImportingTsExtensions": true,
     "rewriteRelativeImportExtensions": true,
 
+
     // Environment Settings
-    "module": "nodenext",
-    "target": "esnext",
-    "moduleResolution": "nodenext",
+    "module": "ESNext",
+    "target": "ES2023",
+    "moduleResolution": "bundler",
     "lib": ["esnext"],
     "types": ["node"],
 
@@ -22,6 +23,7 @@
     "sourceMap": true,
     "declaration": true,
     "declarationMap": true,
+
 
     // Stricter Typechecking Options
     "strict": true,
@@ -40,6 +42,7 @@
     "isolatedModules": true,
     "noUncheckedSideEffectImports": true,
     "moduleDetection": "force",
+    "esModuleInterop": true,
 
     // Misc
     "skipLibCheck": true

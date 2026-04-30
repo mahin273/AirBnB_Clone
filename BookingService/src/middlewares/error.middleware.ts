@@ -7,8 +7,8 @@ export const genericErrorHandler = (
   res: Response,
   next: NextFunction
 ) => {
-    const statusCode = err.statusCode;
-    const message = err.message;
+    const statusCode = err.statusCode || 500;
+    const message = err.message || "Something went wrong";
     const stack = err.stack;
     return res.status(statusCode).json({
         success: false,

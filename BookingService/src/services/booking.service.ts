@@ -1,10 +1,22 @@
-import type { CreateBookingDto } from '../dto/booking.dto.ts';
-import {confirmBooking, createBooking, createIdempotencyKey, getIdempontentKey, finalizeIdempotencyKey} from "../repositories/booking.repository.ts";
-import { BadRequestError, NotFoundError } from '../utils/errors/app.error.ts';
-import { generateIdempotencyKey } from '../utils/helpers/generateIdempotencyKey.ts';
 import prismaClient from '../../prisma/client.ts';
+import { serverConfig } from '../config/index.ts';
 import logger from '../config/logger.ts';
+import { redlock } from '../config/redis.config.ts';
+import type { CreateBookingDto } from '../dto/booking.dto.ts';
+import { confirmBooking, createBooking, createIdempotencyKey, finalizeIdempotencyKey, getIdempontentKey } from "../repositories/booking.repository.ts";
+import { BadRequestError, InternalServerError, NotFoundError } from '../utils/errors/app.error.ts';
+import { generateIdempotencyKey } from '../utils/helpers/generateIdempotencyKey.ts';
+
 export async function createBookingService(createBookingDTO:CreateBookingDto) {
+
+  const ttl = serverConfig.LOCK_TTL;
+  const bookingResource = `property:${createBookingDTO.propertyId}`;
+  let lock;
+  try{
+
+    lock = await redlock.acquire([bookingResource], ttl);
+     logger.info("lock value" +lock)
+      // return await redlock.using([bookingResource], ttl, async () => {
   logger.info('Creating booking', { userId: createBookingDTO.userId, propertyId: createBookingDTO.propertyId });
   const booking = await createBooking({
     userId:createBookingDTO.userId,
@@ -21,6 +33,13 @@ export async function createBookingService(createBookingDTO:CreateBookingDto) {
     bookingId:booking.id,
     idempotencyKey:idempotencyKey
   };
+  // });
+  }catch(error){
+    logger.error('Failed to acquire lock', error);
+    throw new InternalServerError ('Failed to acquire lock');
+  }
+
+
 }
 
 export async function confirmBookingService(idempotencyKey:string){

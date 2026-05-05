@@ -45,6 +45,13 @@
     "esModuleInterop": true,
 
     // Misc
-    "skipLibCheck": true
+    "skipLibCheck": true,
+
+    // Workaround: redlock v5 beta has a broken exports map that omits the
+    // "types" condition, so TypeScript cannot resolve types via moduleResolution.
+    // This path override points directly to the .d.ts file.
+    "paths": {
+      "redlock": ["./node_modules/redlock/dist/index.d.ts"]
+    }
   }
 }

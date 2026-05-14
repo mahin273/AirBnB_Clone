@@ -25,16 +25,14 @@ app.use(requestLogger);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// ─── Routes ──────────────────────────────────────────────────────────
+
 
 app.use('/api/v1', v1Router);
 app.use('/api/v2', v2Router);
 
-// ─── Error Handler (must be last) ────────────────────────────────────
 
 app.use(genericErrorHandler);
 
-// ─── Start Server ────────────────────────────────────────────────────
 
 const server = app.listen(PORT, () => {
   logger.info(`Server is running on http://localhost:${PORT}`);
@@ -43,15 +41,13 @@ const server = app.listen(PORT, () => {
   logger.info('Mailer worker started');
   logger.info('Redis connection established');
 
-  // sample data to test
-  const sample = {
-    to: 'md.mahin.bd18@gmail.com',
-    subject: 'Test Email',
-    templateId: 'welcome',
-    params: { name: 'Mahin Khan' },
-  };
+  addEmailToQueue({
+    to:"md.mahin.bd18@gmail.com",
+    subject:'Test Email',
+    templateId:'welcome',
+    params:{name:"Mahin",appName:"AirBnb"}});
 
-  addEmailToQueue(sample);
+
 });
 
 // ─── Graceful Shutdown ───────────────────────────────────────────────

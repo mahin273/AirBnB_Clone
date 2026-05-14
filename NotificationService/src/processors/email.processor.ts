@@ -5,6 +5,8 @@ import { getRedisConnection } from '../config/redis.config.ts';
 import logger from '../config/logger.config.ts';
 import { MAILER_PAYLOAD } from '../producers/email.producer.ts';
 import { InvalidJobError } from '../utils/errors/app.error.ts';
+import { renderMailTemplate } from '../templates/templates.handler.ts';
+import { sendEmail } from '../services/mailer.service.ts';
 
 export const setupMailerWorker = () => {
   const emailProcessor = new Worker<NotificationDto>(
@@ -14,7 +16,12 @@ export const setupMailerWorker = () => {
         throw new InvalidJobError('Invalid job name');
       }
 
-      //should call service layer from here
+      const payload = job.data;
+      const emailContent = await renderMailTemplate(payload.templateId,payload.params);
+      await sendEmail(payload.to,payload.subject,emailContent);
+      logger.info(`Email sent to ${payload.to} with subject ${payload.subject}`);
+      
+      
     },
     {
       connection: getRedisConnection(),

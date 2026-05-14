@@ -13,6 +13,8 @@ const envSchema = z.object({
   REDIS_PORT: z.coerce.number().int().positive().default(6379),
   REDIS_HOST: z.string().default('localhost'),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
+  SMTP_USER: z.string().email(),
+  SMTP_PASS: z.string(),
 });
 
 const parsed = envSchema.safeParse(process.env);

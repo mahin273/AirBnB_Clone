@@ -1,0 +1,138 @@
+{
+	"info": {
+		"_postman_id": "4a7b5e4c-1d2e-4b3c-8a9d-0f1e2d3c4b5a",
+		"name": "Apartment Service API",
+		"description": "API documentation for the Apartment Service - Airbnb Clone",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Ping",
+			"item": [
+				{
+					"name": "Ping with ID",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"message\": \"pong\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/ping/1",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"ping",
+								"1"
+							]
+						},
+						"description": "Ping endpoint requiring a message in body and an ID in path."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Apartments (Hotels)",
+			"item": [
+				{
+					"name": "Create Apartment",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"Luxury Beachfront Villa\",\n    \"address\": \"123 Ocean Drive\",\n    \"location\": \"Miami\",\n    \"country\": \"USA\",\n    \"rating\": 4.8,\n    \"ratingCount\": 150\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/hotels",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"hotels"
+							]
+						},
+						"description": "Creates a new apartment/hotel entry."
+					},
+					"response": []
+				},
+				{
+					"name": "Get All Apartments",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/hotels",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"hotels"
+							]
+						},
+						"description": "Retrieves all apartments."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Apartment By Id",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/hotels/1",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"hotels",
+								"1"
+							]
+						},
+						"description": "Retrieves a specific apartment by its ID."
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Apartment",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/hotels/1",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"hotels",
+								"1"
+							]
+						},
+						"description": "Soft deletes an apartment by its ID."
+					},
+					"response": []
+				}
+			]
+		}
+	],
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "http://localhost:3000/api/v1",
+			"type": "string"
+		}
+	]
+}

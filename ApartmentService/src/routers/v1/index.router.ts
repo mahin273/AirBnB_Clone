@@ -1,6 +1,6 @@
 import express from "express";
 import pingRouter from "./ping.router.ts";
-import hotelRouter from './hotel.router.ts';
+import hotelRouter from './apartment.router.ts';
 
 const v1Router = express.Router();
 

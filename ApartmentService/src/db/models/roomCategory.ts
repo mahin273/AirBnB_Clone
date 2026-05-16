@@ -2,21 +2,25 @@ import {
   Model,
   DataTypes,
   type CreationOptional,
+  type ForeignKey,
   type InferAttributes,
   type InferCreationAttributes
 } from 'sequelize';
 import sequelize from './sequelize.ts';
+import Apartment from './apartment.ts';
 
 class RoomCategory extends Model<InferAttributes<RoomCategory>, InferCreationAttributes<RoomCategory>> {
   declare id: CreationOptional<number>;
+  declare apartmentId: ForeignKey<Apartment['id']>;
   declare name: string;
   declare description: CreationOptional<string | null>;
   declare roomType: string;
   declare maxGuests: number;
-  declare bedrooms: number;
-  declare beds: number;
-  declare bathrooms: number;
+  declare bedrooms: CreationOptional<number>;
+  declare beds: CreationOptional<number>;
+  declare bathrooms: CreationOptional<number>;
   declare basePricePerNight: number;
+  
   declare createdAt: CreationOptional<Date>;
   declare updatedAt: CreationOptional<Date>;
   declare deletedAt: CreationOptional<Date | null>;
@@ -27,6 +31,14 @@ RoomCategory.init({
     type: DataTypes.INTEGER,
     autoIncrement: true,
     primaryKey: true
+  },
+  apartmentId: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    references: {
+      model: 'apartments',
+      key: 'id'
+    }
   },
   name: {
     type: DataTypes.STRING(100),
@@ -85,5 +97,8 @@ RoomCategory.init({
   timestamps: true,
   paranoid: true
 })
+
+RoomCategory.belongsTo(Apartment, { foreignKey: 'apartmentId', as: 'apartment' });
+Apartment.hasMany(RoomCategory, { foreignKey: 'apartmentId', as: 'roomCategories' });
 
 export default RoomCategory;

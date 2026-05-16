@@ -7,9 +7,9 @@ export class InternalServerError implements AppError{
   statusCode: number;
   message: string;
   name: string;
-  constructor(){
+  constructor(message: string = "Internal Server Error"){
     this.statusCode = 500;
-    this.message = "Internal Server Error";
+    this.message = message;
     this.name = "InternalServerError";
   }
 }
@@ -18,9 +18,9 @@ export class NotFoundError implements AppError{
   statusCode: number;
   message: string;
   name: string;
-  constructor(){
+  constructor(message: string = "Not Found"){
     this.statusCode = 404;
-    this.message = "Not Found";
+    this.message = message;
     this.name = "NotFoundError";
   }
 }
@@ -29,9 +29,9 @@ export class BadRequestError implements AppError{
   statusCode: number;
   message: string;
   name: string;
-  constructor(){
+  constructor(message: string = "Bad Request"){
     this.statusCode = 400;
-    this.message = "Bad Request";
+    this.message = message;
     this.name = "BadRequestError";
   }
 }
@@ -40,9 +40,9 @@ export class UnauthorizedError implements AppError{
   statusCode: number;
   message: string;
   name: string;
-  constructor(){
+  constructor(message: string = "Unauthorized"){
     this.statusCode = 401;
-    this.message = "Unauthorized";
+    this.message = message;
     this.name = "UnauthorizedError";
   }
 }
@@ -51,9 +51,9 @@ export class ForbiddenError implements AppError{
   statusCode: number;
   message: string;
   name: string;
-  constructor(){
+  constructor(message: string = "Forbidden"){
     this.statusCode = 403;
-    this.message = "Forbidden";
+    this.message = message;
     this.name = "ForbiddenError";
   }
 }
@@ -62,9 +62,9 @@ export class ConflictError implements AppError{
   statusCode: number;
   message: string;
   name: string;
-  constructor(){
+  constructor(message: string = "Conflict"){
     this.statusCode = 409;
-    this.message = "Conflict";
+    this.message = message;
     this.name = "ConflictError";
   }
 }

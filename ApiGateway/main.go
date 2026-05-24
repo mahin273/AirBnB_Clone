@@ -6,12 +6,8 @@ import (
 )
 
 func main() {
-	cfg := app.Config{
-		Addr: ":3001",
-	}
-	application := app.Application{
-		Config: cfg,
-	}
+	cfg := app.NewConfig(":3001")
+	application := app.NewApplication(cfg)
 
 	if err := application.Run(); err != nil {
 		log.Fatal(err)

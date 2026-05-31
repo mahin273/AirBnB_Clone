@@ -3,14 +3,16 @@ package main
 import (
 	"ApiGateway/app"
 	"log"
+
+	config "ApiGateway/config/env"
 )
 
 func main() {
-	cfg := app.NewConfig(":3001")
+	config.Load()
+	cfg := app.NewConfig()
 	application := app.NewApplication(cfg)
 
 	if err := application.Run(); err != nil {
 		log.Fatal(err)
 	}
 }
- 

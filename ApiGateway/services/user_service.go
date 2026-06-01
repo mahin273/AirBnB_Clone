@@ -2,11 +2,13 @@ package services
 
 import (
 	db "ApiGateway/db/repositories"
+	"ApiGateway/models"
 	"fmt"
 )
 
 type UserService interface {
-	CreateUser() error
+	CreateUser(user *models.User) error
+	GetUserByID(id int64) (*models.User, error)
 }
 
 type UserServiceImpl struct {
@@ -19,8 +21,12 @@ func NewUserService(_userRepository db.UserRepository) UserService {
 	}
 }
 
-func (u *UserServiceImpl) CreateUser() error {
+func (u *UserServiceImpl) CreateUser(user *models.User) error {
 	fmt.Println("Creating User in UserService")
-	u.UserRepository.Create()
-	return nil
+	return u.UserRepository.Create(user)
+}
+
+func (u *UserServiceImpl) GetUserByID(id int64) (*models.User, error) {
+	fmt.Println("Getting User by ID in UserService")
+	return u.UserRepository.GetByID(id)
 }

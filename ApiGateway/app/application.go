@@ -1,11 +1,14 @@
 package app
 
 import (
+	dbConfig "ApiGateway/config/db"
 	config "ApiGateway/config/env"
 	"ApiGateway/controllers"
 	db "ApiGateway/db/repositories"
+	repo "ApiGateway/db/repositories"
 	"ApiGateway/routers"
 	"ApiGateway/services"
+	"fmt"
 	"log"
 	"net/http"
 	"time"
@@ -18,7 +21,7 @@ type Config struct{
 
 type Application struct{
 	Config Config
-	Store db.Storage
+	Store repo.Storage
 }
 
 func NewConfig() Config{
@@ -36,7 +39,27 @@ func NewApplication(cfg Config) *Application{
 }
 
 func (app *Application) Run() error{
-	userRepository := db.NewStorage().UserRepository
+	db,err:=dbConfig.SetupDB()
+	if err!=nil{
+		fmt.Println("Error setting up database",err)
+		return err
+	}
+
+	// Setup users table schema on startup
+	query := `CREATE TABLE IF NOT EXISTS users (
+		id INT AUTO_INCREMENT PRIMARY KEY, 
+		name VARCHAR(255), 
+		email VARCHAR(255) UNIQUE, 
+		password VARCHAR(255),
+		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+		updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+	)`
+	if _, err := db.Exec(query); err != nil {
+		log.Println("Error creating table users:", err)
+		return err
+	}
+
+	userRepository := repo.NewUserRepository(db)
 	userService := services.NewUserService(userRepository)
 	userController := controllers.NewUserController(userService)
 	userRouter := routers.NewUserRouter(userController)

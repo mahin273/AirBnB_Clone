@@ -22,4 +22,7 @@ func(ur *UserRouter)Register(r chi.Router) {
 	r.Post("/signup", func(w http.ResponseWriter, r *http.Request) {
         ur.UserController.RegisterUser(w, r)
     })
+	r.Get("/users/{id}", func(w http.ResponseWriter, r *http.Request) {
+        ur.UserController.GetUserByID(w, r)
+    })
 }

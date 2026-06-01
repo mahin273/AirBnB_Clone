@@ -15,7 +15,13 @@ type UserRepositoryImpl struct {
 	db *sql.DB
 }
 
+func (u *UserRepositoryImpl)GetAll()(*[]models.User,error){
+	return nil,nil
+}
 
+func(u* UserRepositoryImpl)DeleteById(id int64)error{
+	return nil
+}
 
 func NewUserRepository(_db *sql.DB) UserRepository{
 	return &UserRepositoryImpl{

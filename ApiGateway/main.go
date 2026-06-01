@@ -2,6 +2,7 @@ package main
 
 import (
 	"ApiGateway/app"
+	"log"
 
 	config "ApiGateway/config/env"
 )
@@ -14,10 +15,10 @@ func main() {
 
 	
 	cfg := app.NewConfig()
-	app := app.NewApplication(cfg)	
-	app.Run()
+	application := app.NewApplication(cfg)	
+	application.Run()
 
-	// if err := application.Run(); err != nil {
-	// 	log.Fatal(err)
-	// }
+	if err := application.Run(); err != nil {
+		log.Fatal(err)
+	}
 }

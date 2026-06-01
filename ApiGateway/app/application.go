@@ -45,19 +45,19 @@ func (app *Application) Run() error{
 		return err
 	}
 
-	// Setup users table schema on startup
-	query := `CREATE TABLE IF NOT EXISTS users (
-		id INT AUTO_INCREMENT PRIMARY KEY, 
-		name VARCHAR(255), 
-		email VARCHAR(255) UNIQUE, 
-		password VARCHAR(255),
-		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-		updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-	)`
-	if _, err := db.Exec(query); err != nil {
-		log.Println("Error creating table users:", err)
-		return err
-	}
+	// // Setup users table schema on startup
+	// query := `CREATE TABLE IF NOT EXISTS users (
+	// 	id INT AUTO_INCREMENT PRIMARY KEY, 
+	// 	name VARCHAR(255), 
+	// 	email VARCHAR(255) UNIQUE, 
+	// 	password VARCHAR(255),
+	// 	created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+	// 	updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+	// )`
+	// if _, err := db.Exec(query); err != nil {
+	// 	log.Println("Error creating table users:", err)
+	// 	return err
+	// }
 
 	userRepository := repo.NewUserRepository(db)
 	userService := services.NewUserService(userRepository)

@@ -3,6 +3,7 @@ package services
 import (
 	db "ApiGateway/db/repositories"
 	"ApiGateway/models"
+	"ApiGateway/utils"
 	"fmt"
 )
 
@@ -22,6 +23,11 @@ func NewUserService(_userRepository db.UserRepository) UserService {
 }
 
 func (u *UserServiceImpl) CreateUser(user *models.User) error {
+	hashedPassword,err:=utils.HashPassword(user.Password)
+	if err!=nil{
+		return err
+	}
+	user.Password=hashedPassword
 	fmt.Println("Creating User in UserService")
 	return u.UserRepository.Create(user)
 }

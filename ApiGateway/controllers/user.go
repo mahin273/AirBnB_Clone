@@ -3,6 +3,7 @@ package controllers
 import (
 	"ApiGateway/models"
 	"ApiGateway/services"
+	"ApiGateway/utils"
 	"encoding/json"
 	"net/http"
 	"strconv"
@@ -54,6 +55,35 @@ func(uc *UserController) GetUserByID(w http.ResponseWriter,r * http.Request)erro
 			return err
 		}
 		http.Error(w, "Failed to retrieve user", http.StatusInternalServerError)
+		return err
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(user)
+	return nil
+}
+
+func(uc *UserController) Signin(w http.ResponseWriter, r *http.Request) error {
+	var req struct {
+		Email    string `json:"email"`
+		Password string `json:"password"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return err
+	}
+
+	user, err := uc.UserService.GetUserByEmail(req.Email)
+	if err != nil {
+		http.Error(w, "Invalid email or password", http.StatusUnauthorized)
+		return err
+	}
+
+	// Verify the password
+	if err := utils.ComparePassword(user.Password, req.Password); err != nil {
+		http.Error(w, "Invalid email or password", http.StatusUnauthorized)
 		return err
 	}
 

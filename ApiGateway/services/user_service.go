@@ -10,6 +10,7 @@ import (
 type UserService interface {
 	CreateUser(user *models.User) error
 	GetUserByID(id int64) (*models.User, error)
+	GetUserByEmail(email string) (*models.User, error)
 }
 
 type UserServiceImpl struct {
@@ -35,4 +36,9 @@ func (u *UserServiceImpl) CreateUser(user *models.User) error {
 func (u *UserServiceImpl) GetUserByID(id int64) (*models.User, error) {
 	fmt.Println("Getting User by ID in UserService")
 	return u.UserRepository.GetByID(id)
+}
+
+func (u *UserServiceImpl) GetUserByEmail(email string) (*models.User, error) {
+	fmt.Println("Getting User by Email in UserService")
+	return u.UserRepository.GetByEmail(email)
 }

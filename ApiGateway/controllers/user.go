@@ -3,7 +3,6 @@ package controllers
 import (
 	"ApiGateway/models"
 	"ApiGateway/services"
-	"ApiGateway/utils"
 	"encoding/json"
 	"net/http"
 	"strconv"
@@ -75,20 +74,16 @@ func(uc *UserController) Signin(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	user, err := uc.UserService.GetUserByEmail(req.Email)
+	tokenString, err := uc.UserService.LoginUser(req.Email, req.Password)
 	if err != nil {
-		http.Error(w, "Invalid email or password", http.StatusUnauthorized)
-		return err
-	}
-
-	// Verify the password
-	if err := utils.ComparePassword(user.Password, req.Password); err != nil {
 		http.Error(w, "Invalid email or password", http.StatusUnauthorized)
 		return err
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(user)
+	json.NewEncoder(w).Encode(map[string]string{
+		"token": tokenString,
+	})
 	return nil
 }

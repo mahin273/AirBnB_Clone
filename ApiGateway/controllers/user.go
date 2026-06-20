@@ -3,7 +3,7 @@ package controllers
 import (
 	"ApiGateway/models"
 	"ApiGateway/services"
-	"encoding/json"
+	"ApiGateway/utils"
 	"net/http"
 	"strconv"
 
@@ -23,67 +23,58 @@ func NewUserController(_userService services.UserService) *UserController{
 
 func(uc *UserController) RegisterUser(w http.ResponseWriter,r * http.Request)error{
 	var user models.User
-	if err := json.NewDecoder(r.Body).Decode(&user); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+	if err := utils.ReadJSON(r, &user); err != nil {
+		utils.WriteJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 		return err
 	}
 
 	if err := uc.UserService.CreateUser(&user); err != nil {
-		http.Error(w, "Failed to register user", http.StatusInternalServerError)
+		utils.WriteJSON(w, http.StatusInternalServerError, map[string]string{"error": "Failed to register user"})
 		return err
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(user)
-	return nil
+	return utils.WriteJSON(w, http.StatusCreated, user)
 }
 
 func(uc *UserController) GetUserByID(w http.ResponseWriter,r * http.Request)error{
 	idStr := chi.URLParam(r, "id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
-		http.Error(w, "Invalid user ID", http.StatusBadRequest)
+		utils.WriteJSON(w, http.StatusBadRequest, map[string]string{"error": "Invalid user ID"})
 		return err
 	}
 
 	user, err := uc.UserService.GetUserByID(id)
 	if err != nil {
 		if err.Error() == "user not found" {
-			http.Error(w, "User not found", http.StatusNotFound)
+			utils.WriteJSON(w, http.StatusNotFound, map[string]string{"error": "User not found"})
 			return err
 		}
-		http.Error(w, "Failed to retrieve user", http.StatusInternalServerError)
+		utils.WriteJSON(w, http.StatusInternalServerError, map[string]string{"error": "Failed to retrieve user"})
 		return err
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(user)
-	return nil
+	return utils.WriteJSON(w, http.StatusOK, user)
 }
 
-func(uc *UserController) Signin(w http.ResponseWriter, r *http.Request) error {
+func(uc *UserController) LoginUser(w http.ResponseWriter, r *http.Request) error {
 	var req struct {
 		Email    string `json:"email"`
 		Password string `json:"password"`
 	}
 
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+	if err := utils.ReadJSON(r, &req); err != nil {
+		utils.WriteJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 		return err
 	}
 
 	tokenString, err := uc.UserService.LoginUser(req.Email, req.Password)
 	if err != nil {
-		http.Error(w, "Invalid email or password", http.StatusUnauthorized)
+		utils.WriteJSON(w, http.StatusUnauthorized, map[string]string{"error": "Invalid email or password"})
 		return err
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{
+	return utils.WriteJSON(w, http.StatusOK, map[string]string{
 		"token": tokenString,
 	})
-	return nil
 }

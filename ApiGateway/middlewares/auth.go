@@ -11,14 +11,8 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
-type contextKey string
-
-const (
-	UserIDKey    contextKey = "user_id"
-	UserEmailKey contextKey = "user_email"
-)
-
 // RequireAuth is a middleware that enforces JWT authentication on protected routes.
+
 func RequireAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		authHeader := r.Header.Get("Authorization")
@@ -48,36 +42,13 @@ func RequireAuth(next http.Handler) http.Handler {
 
 		ctx := r.Context()
 		if userID, exists := claims["user_id"]; exists {
-			ctx = context.WithValue(ctx, UserIDKey, userID)
+			ctx = context.WithValue(ctx, utils.UserIDKey, userID)
 		}
 		if email, exists := claims["email"]; exists {
-			ctx = context.WithValue(ctx, UserEmailKey, email)
+			ctx = context.WithValue(ctx, utils.UserEmailKey, email)
 		}
 
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
 
-// GetUserIDFromContext retrieves the authenticated user ID from context.
-func GetUserIDFromContext(ctx context.Context) (int64, bool) {
-	val := ctx.Value(UserIDKey)
-	if val == nil {
-		return 0, false
-	}
-	switch v := val.(type) {
-	case float64:
-		return int64(v), true
-	case int64:
-		return v, true
-	case int:
-		return int64(v), true
-	default:
-		return 0, false
-	}
-}
-
-// GetUserEmailFromContext retrieves the authenticated user email from context.
-func GetUserEmailFromContext(ctx context.Context) (string, bool) {
-	val, ok := ctx.Value(UserEmailKey).(string)
-	return val, ok
-}

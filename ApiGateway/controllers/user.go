@@ -2,7 +2,6 @@ package controllers
 
 import (
 	"ApiGateway/dto"
-	"ApiGateway/middlewares"
 	"ApiGateway/models"
 	"ApiGateway/services"
 	"ApiGateway/utils"
@@ -11,6 +10,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 )
+
 
 
 type UserController struct {
@@ -77,7 +77,8 @@ func (uc *UserController) GetUserByID(w http.ResponseWriter, r *http.Request) er
 }
 
 func (uc *UserController) GetMe(w http.ResponseWriter, r *http.Request) error {
-	userID, ok := middlewares.GetUserIDFromContext(r.Context())
+	userID, ok := utils.GetUserIDFromContext(r.Context())
+
 	if !ok {
 		return utils.NewUnauthorizedError("Unauthorized")
 	}

@@ -1,8 +1,0 @@
-# HomeWork
-
-1.Connect all the remaining APIs:Signup and get user with services using JSON marshalling [DONE]
-
-2.Write middleware to validate every incomig request body
-
-3.Setup a good error handling mechanism
-

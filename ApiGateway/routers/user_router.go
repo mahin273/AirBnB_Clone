@@ -27,7 +27,7 @@ func (ur *UserRouter) Register(r chi.Router) {
 	// Protected routes (Require JWT Authentication)
 	r.Group(func(protected chi.Router) {
 		protected.Use(middlewares.RequireAuth)
-		protected.Get("/users/me", utils.APIHandler(ur.UserController.GetMe))
+		protected.Get("/users/profile", utils.APIHandler(ur.UserController.GetMe))
 		protected.Get("/users/{id}", utils.APIHandler(ur.UserController.GetUserByID))
 	})
 }

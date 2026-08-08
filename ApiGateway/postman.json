@@ -3,6 +3,18 @@
 		"name": "AirBnb ApiGateway Service",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
 	},
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "http://localhost:3005",
+			"type": "string"
+		},
+		{
+			"key": "token",
+			"value": "",
+			"type": "string"
+		}
+	],
 	"item": [
 		{
 			"name": "Ping",
@@ -10,12 +22,10 @@
 				"method": "GET",
 				"header": [],
 				"url": {
-					"raw": "http://localhost:8080/ping",
-					"protocol": "http",
+					"raw": "{{baseUrl}}/ping",
 					"host": [
-						"localhost"
+						"{{baseUrl}}"
 					],
-					"port": "8080",
 					"path": [
 						"ping"
 					]
@@ -44,12 +54,10 @@
 					}
 				},
 				"url": {
-					"raw": "http://localhost:8080/signup",
-					"protocol": "http",
+					"raw": "{{baseUrl}}/signup",
 					"host": [
-						"localhost"
+						"{{baseUrl}}"
 					],
-					"port": "8080",
 					"path": [
 						"signup"
 					]
@@ -59,6 +67,23 @@
 		},
 		{
 			"name": "Signin",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"if (pm.response.code === 200) {",
+							"    var jsonData = pm.response.json();",
+							"    if (jsonData.token) {",
+							"        pm.collectionVariables.set(\"token\", jsonData.token);",
+							"        console.log(\"Saved JWT token to collection variable\");",
+							"    }",
+							"}"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
 			"request": {
 				"method": "POST",
 				"header": [
@@ -78,12 +103,10 @@
 					}
 				},
 				"url": {
-					"raw": "http://localhost:8080/signin",
-					"protocol": "http",
+					"raw": "{{baseUrl}}/signin",
 					"host": [
-						"localhost"
+						"{{baseUrl}}"
 					],
-					"port": "8080",
 					"path": [
 						"signin"
 					]
@@ -92,17 +115,53 @@
 			"response": []
 		},
 		{
-			"name": "Get User By ID",
+			"name": "Get Current User (Me)",
 			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "{{token}}",
+							"type": "string"
+						}
+					]
+				},
 				"method": "GET",
 				"header": [],
 				"url": {
-					"raw": "http://localhost:8080/users/1",
-					"protocol": "http",
+					"raw": "{{baseUrl}}/users/me",
 					"host": [
-						"localhost"
+						"{{baseUrl}}"
 					],
-					"port": "8080",
+					"path": [
+						"users",
+						"me"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Get User By ID",
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "{{token}}",
+							"type": "string"
+						}
+					]
+				},
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/users/1",
+					"host": [
+						"{{baseUrl}}"
+					],
 					"path": [
 						"users",
 						"1"

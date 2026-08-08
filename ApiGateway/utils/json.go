@@ -3,8 +3,14 @@ package utils
 import (
 	"encoding/json"
 	"net/http"
+	"github.com/go-playground/validator/v10"
 )
 
+var Validator *validator.Validate
+
+func init(){
+	Validator = validator.New(validator.WithRequiredStructEnabled())
+}
 // ReadJSON decodes the JSON request body into the target structure.
 func ReadJSON(r *http.Request, data interface{}) error {
 	return json.NewDecoder(r.Body).Decode(data)

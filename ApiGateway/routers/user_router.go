@@ -20,7 +20,14 @@ func NewUserRouter(_userController *controllers.UserController) Router {
 }
 
 func (ur *UserRouter) Register(r chi.Router) {
+	// Public routes
 	r.With(middlewares.ValidateBody[dto.RegisterUserRequestDTO]()).Post("/signup", utils.APIHandler(ur.UserController.RegisterUser))
 	r.With(middlewares.ValidateBody[dto.LoginUserRequestDTO]()).Post("/signin", utils.APIHandler(ur.UserController.LoginUser))
-	r.Get("/users/{id}", utils.APIHandler(ur.UserController.GetUserByID))
+
+	// Protected routes (Require JWT Authentication)
+	r.Group(func(protected chi.Router) {
+		protected.Use(middlewares.RequireAuth)
+		protected.Get("/users/me", utils.APIHandler(ur.UserController.GetMe))
+		protected.Get("/users/{id}", utils.APIHandler(ur.UserController.GetUserByID))
+	})
 }

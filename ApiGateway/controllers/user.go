@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"ApiGateway/dto"
+	"ApiGateway/middlewares"
 	"ApiGateway/models"
 	"ApiGateway/services"
 	"ApiGateway/utils"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 )
+
 
 type UserController struct {
 	UserService services.UserService
@@ -74,7 +76,33 @@ func (uc *UserController) GetUserByID(w http.ResponseWriter, r *http.Request) er
 	return utils.WriteJSON(w, http.StatusOK, res)
 }
 
+func (uc *UserController) GetMe(w http.ResponseWriter, r *http.Request) error {
+	userID, ok := middlewares.GetUserIDFromContext(r.Context())
+	if !ok {
+		return utils.NewUnauthorizedError("Unauthorized")
+	}
+
+	user, err := uc.UserService.GetUserByID(userID)
+	if err != nil {
+		if err.Error() == "user not found" {
+			return utils.NewNotFoundError("User profile not found")
+		}
+		return utils.NewInternalServerError(err)
+	}
+
+	res := dto.UserResponseDTO{
+		ID:        user.ID,
+		Name:      user.Name,
+		Email:     user.Email,
+		CreatedAt: user.CreatedAt,
+		UpdatedAt: user.UpdatedAt,
+	}
+
+	return utils.WriteJSON(w, http.StatusOK, res)
+}
+
 func (uc *UserController) LoginUser(w http.ResponseWriter, r *http.Request) error {
+
 	var req dto.LoginUserRequestDTO
 
 	if err := utils.ReadJSON(r, &req); err != nil {

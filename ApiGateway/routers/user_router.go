@@ -4,7 +4,7 @@ import (
 	"ApiGateway/controllers"
 	"ApiGateway/dto"
 	"ApiGateway/middlewares"
-	"net/http"
+	"ApiGateway/utils"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -20,13 +20,7 @@ func NewUserRouter(_userController *controllers.UserController) Router {
 }
 
 func (ur *UserRouter) Register(r chi.Router) {
-	r.With(middlewares.ValidateBody[dto.RegisterUserRequestDTO]()).Post("/signup", func(w http.ResponseWriter, r *http.Request) {
-		ur.UserController.RegisterUser(w, r)
-	})
-	r.With(middlewares.ValidateBody[dto.LoginUserRequestDTO]()).Post("/signin", func(w http.ResponseWriter, r *http.Request) {
-		ur.UserController.LoginUser(w, r)
-	})
-	r.Get("/users/{id}", func(w http.ResponseWriter, r *http.Request) {
-		ur.UserController.GetUserByID(w, r)
-	})
+	r.With(middlewares.ValidateBody[dto.RegisterUserRequestDTO]()).Post("/signup", utils.APIHandler(ur.UserController.RegisterUser))
+	r.With(middlewares.ValidateBody[dto.LoginUserRequestDTO]()).Post("/signin", utils.APIHandler(ur.UserController.LoginUser))
+	r.Get("/users/{id}", utils.APIHandler(ur.UserController.GetUserByID))
 }

@@ -24,8 +24,7 @@ func NewUserController(_userService services.UserService) *UserController {
 func (uc *UserController) RegisterUser(w http.ResponseWriter, r *http.Request) error {
 	var req dto.RegisterUserRequestDTO
 	if err := utils.ReadJSON(r, &req); err != nil {
-		utils.WriteJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
-		return err
+		return utils.NewBadRequestError("Malformed JSON request body: " + err.Error())
 	}
 
 	user := &models.User{
@@ -35,8 +34,7 @@ func (uc *UserController) RegisterUser(w http.ResponseWriter, r *http.Request) e
 	}
 
 	if err := uc.UserService.CreateUser(user); err != nil {
-		utils.WriteJSON(w, http.StatusInternalServerError, map[string]string{"error": "Failed to register user"})
-		return err
+		return utils.NewInternalServerError(err)
 	}
 
 	res := dto.UserResponseDTO{
@@ -54,18 +52,15 @@ func (uc *UserController) GetUserByID(w http.ResponseWriter, r *http.Request) er
 	idStr := chi.URLParam(r, "id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
-		utils.WriteJSON(w, http.StatusBadRequest, map[string]string{"error": "Invalid user ID"})
-		return err
+		return utils.NewBadRequestError("Invalid user ID")
 	}
 
 	user, err := uc.UserService.GetUserByID(id)
 	if err != nil {
 		if err.Error() == "user not found" {
-			utils.WriteJSON(w, http.StatusNotFound, map[string]string{"error": "User not found"})
-			return err
+			return utils.NewNotFoundError("User not found")
 		}
-		utils.WriteJSON(w, http.StatusInternalServerError, map[string]string{"error": "Failed to retrieve user"})
-		return err
+		return utils.NewInternalServerError(err)
 	}
 
 	res := dto.UserResponseDTO{
@@ -83,14 +78,12 @@ func (uc *UserController) LoginUser(w http.ResponseWriter, r *http.Request) erro
 	var req dto.LoginUserRequestDTO
 
 	if err := utils.ReadJSON(r, &req); err != nil {
-		utils.WriteJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
-		return err
+		return utils.NewBadRequestError("Malformed JSON request body: " + err.Error())
 	}
 
 	tokenString, err := uc.UserService.LoginUser(req.Email, req.Password)
 	if err != nil {
-		utils.WriteJSON(w, http.StatusUnauthorized, map[string]string{"error": "Invalid email or password"})
-		return err
+		return utils.NewUnauthorizedError("Invalid email or password")
 	}
 
 	return utils.WriteJSON(w, http.StatusOK, map[string]string{

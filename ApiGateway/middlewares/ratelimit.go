@@ -1,6 +1,7 @@
 package middlewares
 
 import (
+	env "ApiGateway/config/env"
 	"ApiGateway/utils"
 	"fmt"
 	"log"
@@ -9,23 +10,24 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/golang-jwt/jwt/v5"
 )
 
-
-// clientBucket holds rate limiting state for a single client IP.
+// clientBucket holds rate limiting state for a single client (IP or User ID).
 type clientBucket struct {
 	tokens     float64
 	lastRefill time.Time
 	lastSeen   time.Time
 }
 
-// IPRateLimiter manages IP-based rate limiting buckets safely across concurrent goroutines.
+// IPRateLimiter manages rate limiting buckets safely across concurrent goroutines.
 type IPRateLimiter struct {
-	mu           sync.RWMutex
-	clients      map[string]*clientBucket
-	ratePerSec   float64
-	burst        float64
-	ttl          time.Duration
+	mu         sync.RWMutex
+	clients    map[string]*clientBucket
+	ratePerSec float64
+	burst      float64
+	ttl        time.Duration
 }
 
 // NewIPRateLimiter creates a rate limiter with specified requests per minute, burst allowance, and TTL cleanup.
@@ -37,7 +39,7 @@ func NewIPRateLimiter(requestsPerMin int, burst int) *IPRateLimiter {
 		ttl:        3 * time.Minute,
 	}
 
-	// Start background cleanup ticker to prevent memory leaks from inactive IPs
+	// Start background cleanup ticker to prevent memory leaks from inactive clients
 	go limiter.cleanupClients()
 
 	return limiter
@@ -49,9 +51,9 @@ func (l *IPRateLimiter) cleanupClients() {
 	for range ticker.C {
 		l.mu.Lock()
 		now := time.Now()
-		for ip, client := range l.clients {
+		for key, client := range l.clients {
 			if now.Sub(client.lastSeen) > l.ttl {
-				delete(l.clients, ip)
+				delete(l.clients, key)
 			}
 		}
 		l.mu.Unlock()
@@ -84,20 +86,44 @@ func GetClientIP(r *http.Request) string {
 	return ip
 }
 
-// Allow checks whether a client IP has available tokens, refilling tokens based on elapsed time.
-func (l *IPRateLimiter) Allow(ip string) (bool, int, int) {
+// GetLimiterKey extracts the rate limiting key: user:<id> if a valid JWT is present, or ip:<ip> as fallback.
+func GetLimiterKey(r *http.Request) (string, bool) {
+	authHeader := r.Header.Get("Authorization")
+	if strings.HasPrefix(authHeader, "Bearer ") {
+		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
+		token, err := jwt.Parse(tokenString, func(t *jwt.Token) (interface{}, error) {
+			if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
+				return nil, fmt.Errorf("unexpected signing method: %v", t.Header["alg"])
+			}
+			return []byte(env.GetString("JWT_SECRET", "TOKEN_SECRET")), nil
+		})
+
+		if err == nil && token.Valid {
+			if claims, ok := token.Claims.(jwt.MapClaims); ok {
+				if userID, exists := claims["user_id"]; exists {
+					return fmt.Sprintf("user:%v", userID), true
+				}
+			}
+		}
+	}
+
+	return fmt.Sprintf("ip:%s", GetClientIP(r)), false
+}
+
+// Allow checks whether a client key has available tokens, refilling tokens based on elapsed time.
+func (l *IPRateLimiter) Allow(key string) (bool, int, int) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
 	now := time.Now()
-	client, exists := l.clients[ip]
+	client, exists := l.clients[key]
 	if !exists {
 		client = &clientBucket{
 			tokens:     l.burst,
 			lastRefill: now,
 			lastSeen:   now,
 		}
-		l.clients[ip] = client
+		l.clients[key] = client
 	}
 
 	// Refill tokens based on elapsed time
@@ -120,20 +146,20 @@ func (l *IPRateLimiter) Allow(ip string) (bool, int, int) {
 	return false, limitInt, remaining
 }
 
-// RateLimit returns a middleware that enforces rate limiting per client IP.
+// RateLimit returns a middleware that enforces rate limiting per user ID (JWT) or client IP fallback.
 func RateLimit(requestsPerMin int, burst int) func(http.Handler) http.Handler {
 	limiter := NewIPRateLimiter(requestsPerMin, burst)
 
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			clientIP := GetClientIP(r)
-			allowed, limit, remaining := limiter.Allow(clientIP)
+			limiterKey, isAuthenticated := GetLimiterKey(r)
+			allowed, limit, remaining := limiter.Allow(limiterKey)
 
 			w.Header().Set("X-RateLimit-Limit", fmt.Sprintf("%d", limit))
 			w.Header().Set("X-RateLimit-Remaining", fmt.Sprintf("%d", remaining))
 
 			if !allowed {
-				log.Printf("[RATE LIMIT EXCEEDED] IP: %s - Limit: %d, Remaining: %d\n", clientIP, limit, remaining)
+				log.Printf("[RATE LIMIT EXCEEDED] Key: %s (Authenticated: %t) - Limit: %d, Remaining: %d\n", limiterKey, isAuthenticated, limit, remaining)
 				w.Header().Set("Retry-After", "60")
 				utils.WriteAppError(w, utils.NewAppError(
 					http.StatusTooManyRequests,
@@ -144,8 +170,8 @@ func RateLimit(requestsPerMin int, burst int) func(http.Handler) http.Handler {
 				return
 			}
 
-
 			next.ServeHTTP(w, r)
 		})
 	}
 }
+

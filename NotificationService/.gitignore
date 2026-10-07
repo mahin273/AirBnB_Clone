@@ -13,6 +13,7 @@ dist/
 # Logs
 logs/
 *.log
+*audit.json
 
 # OS files
 .DS_Store

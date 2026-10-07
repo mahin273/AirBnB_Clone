@@ -8,8 +8,7 @@ import { corsMiddleware, rateLimiter, securityHeaders } from './middlewares/secu
 import v1Router from './routers/v1/index.router.ts';
 import v2Router from './routers/v2/index.router.ts';
 import { setupMailerWorker } from './processors/email.processor.ts';
-import { mailerQueue } from './queues/mailer.queue.ts';
-import { addEmailToQueue } from './producers/email.producer.ts';
+
 
 const app = express();
 const PORT = serverConfig.PORT;
@@ -40,14 +39,6 @@ const server = app.listen(PORT, () => {
   setupMailerWorker();
   logger.info('Mailer worker started');
   logger.info('Redis connection established');
-
-  addEmailToQueue({
-    to:"md.mahin.bd18@gmail.com",
-    subject:'Test Email',
-    templateId:'welcome',
-    params:{name:"Mahin",appName:"AirBnb"}});
-
-
 });
 
 // ─── Graceful Shutdown ───────────────────────────────────────────────

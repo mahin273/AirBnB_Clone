@@ -8,6 +8,8 @@ import { InvalidJobError } from '../utils/errors/app.error.ts';
 import { renderMailTemplate } from '../templates/templates.handler.ts';
 import { sendEmail } from '../services/mailer.service.ts';
 
+import { notificationPayloadSchema } from '../validators/notification.validator.ts';
+
 export const setupMailerWorker = () => {
   const emailProcessor = new Worker<NotificationDto>(
     MAILER_QUEUE,
@@ -16,13 +18,18 @@ export const setupMailerWorker = () => {
         throw new InvalidJobError('Invalid job name');
       }
 
-      const payload = job.data;
-      const emailContent = await renderMailTemplate(payload.templateId,payload.params);
-      await sendEmail(payload.to,payload.subject,emailContent);
+      const parseResult = notificationPayloadSchema.safeParse(job.data);
+      if (!parseResult.success) {
+        logger.error(`Validation failed for job ${job.id}`, parseResult.error.format());
+        throw new InvalidJobError(`Invalid job payload: ${parseResult.error.message}`);
+      }
+
+      const payload = parseResult.data;
+      const emailContent = await renderMailTemplate(payload.templateId, payload.params);
+      await sendEmail(payload.to, payload.subject, emailContent);
       logger.info(`Email sent to ${payload.to} with subject ${payload.subject}`);
-      
-      
     },
+
     {
       connection: getRedisConnection(),
     },

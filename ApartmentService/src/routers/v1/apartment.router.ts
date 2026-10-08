@@ -10,6 +10,7 @@ import { hotelSchema } from '../../validators/hotel.validator.ts';
 import { validateRequestBody } from '../../validators/index.ts';
 import { extractUserContext, requireUserContext } from '../../middlewares/auth-context.middleware.ts';
 import roomCategoryRouter from './roomCategory.router.ts';
+import roomRouter from './room.router.ts';
 
 const hotelRouter = express.Router();
 
@@ -27,6 +28,7 @@ hotelRouter.get('/', getAllApartmentsHandler);
 hotelRouter.delete('/:id', requireUserContext, softDeleteApartmentHandler);
 
 hotelRouter.use('/:apartmentId/categories', roomCategoryRouter);
+hotelRouter.use('/:apartmentId/rooms', roomRouter);
 
 export default hotelRouter;
 

@@ -90,10 +90,10 @@ Room.init({
   paranoid: true
 })
 
-Room.belongsTo(Apartment, { foreignKey: 'apartmentId', as: 'apartment' })  // ✅ fixed
-Apartment.hasMany(Room, { foreignKey: 'apartmentId', as: 'rooms' })        // ✅ fixed
+Room.belongsTo(Apartment, { foreignKey: 'apartmentId', as: 'apartment' });
+Apartment.hasMany(Room, { foreignKey: 'apartmentId', as: 'rooms' });
 
-Room.belongsTo(RoomCategory, { foreignKey: 'categoryId', as: 'category' })
-RoomCategory.hasMany(Room, { foreignKey: 'categoryId', as: 'rooms' })
+Room.belongsTo(RoomCategory, { foreignKey: 'categoryId', as: 'category' });
+RoomCategory.hasMany(Room, { foreignKey: 'categoryId', as: 'rooms' });
 
 export default Room;

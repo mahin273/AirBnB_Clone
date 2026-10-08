@@ -13,6 +13,7 @@ class Apartment extends Model<InferAttributes<Apartment>, InferCreationAttribute
   declare address: string;
   declare location: string;
   declare country: string;
+  declare hostId: number;
   declare rating: CreationOptional<number>;
   declare ratingCount: CreationOptional<number>;
   declare createdAt: CreationOptional<Date>;
@@ -41,6 +42,12 @@ Apartment.init({
   country: {
     type: DataTypes.STRING(100),
     allowNull: false
+  },
+  hostId: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    field: 'host_id',
+    defaultValue: 1
   },
   rating: {
     type: DataTypes.FLOAT,

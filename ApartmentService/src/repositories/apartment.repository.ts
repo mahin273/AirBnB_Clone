@@ -5,6 +5,13 @@ export class ApartmentRepository extends BaseRepository<Apartment> {
     constructor() {
         super(Apartment);
     }
+
+    async findByHostId(hostId: number): Promise<Apartment[]> {
+        return await this.model.findAll({
+            where: { hostId },
+        });
+    }
 }
+
 
 export const apartmentRepository = new ApartmentRepository();

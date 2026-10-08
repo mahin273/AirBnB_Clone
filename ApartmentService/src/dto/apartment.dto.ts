@@ -3,7 +3,8 @@ export type createApartmentDto = {
   address: string;
   location: string;
   country: string;
+  hostId: number;
   rating?: number;
   ratingCount?: number;
+};
 
-}

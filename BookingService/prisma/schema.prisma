@@ -20,6 +20,8 @@ model Booking{
   id Int @id @default(autoincrement())
   userId Int
   propertyId Int
+  checkInDate DateTime
+  checkOutDate DateTime
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   bookingAmount Int
@@ -27,6 +29,8 @@ model Booking{
   totalGuests Int
   idempotencyKey IdempotencyKey?
 
+  @@index([propertyId, bookingStatus])
+  @@index([userId])
 }
 
 model IdempotencyKey{

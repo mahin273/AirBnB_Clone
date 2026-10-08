@@ -11,6 +11,28 @@ export async function createBooking(bookingInput: Prisma.BookingCreateInput){
   return booking;
 }
 
+export async function findOverlappingBookings(
+  propertyId: number,
+  checkInDate: Date,
+  checkOutDate: Date
+) {
+  const overlapping = await prismaClient.booking.findMany({
+    where: {
+      propertyId,
+      bookingStatus: {
+        in: ['PENDING', 'CONFIRMED'],
+      },
+      checkInDate: {
+        lt: checkOutDate,
+      },
+      checkOutDate: {
+        gt: checkInDate,
+      },
+    },
+  });
+  return overlapping;
+}
+
 export async function createIdempotencyKey(key:string,bookingId:number){
   const idempotencyKey = await prismaClient.idempotencyKey.create({
     data:{

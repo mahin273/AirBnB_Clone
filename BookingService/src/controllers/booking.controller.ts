@@ -1,5 +1,11 @@
 import type { Request, Response, NextFunction } from 'express';
-import { createBookingService, confirmBookingService } from '../services/booking.service.ts';
+import {
+  createBookingService,
+  confirmBookingService,
+  getMyBookingsService,
+  getBookingByIdService,
+  cancelBookingService,
+} from '../services/booking.service.ts';
 import { StatusCodes } from 'http-status-codes';
 import logger from '../config/logger.ts';
 
@@ -24,6 +30,50 @@ export const confirmBookingController = async (req: Request, res: Response, next
     const booking = await confirmBookingService(req.body.idempotencyKey);
     logger.info('Booking confirmed successfully', { bookingId: booking.id });
     res.status(StatusCodes.OK).json(booking);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getMyBookingsController = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = req.user!.id;
+    const bookings = await getMyBookingsService(userId);
+    res.status(StatusCodes.OK).json({
+      success: true,
+      message: 'User bookings retrieved successfully',
+      data: bookings,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getBookingByIdController = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const bookingId = Number(req.params.id);
+    const userId = req.user!.id;
+    const booking = await getBookingByIdService(bookingId, userId);
+    res.status(StatusCodes.OK).json({
+      success: true,
+      message: 'Booking retrieved successfully',
+      data: booking,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const cancelBookingController = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const bookingId = Number(req.params.id);
+    const userId = req.user!.id;
+    const cancelled = await cancelBookingService(bookingId, userId);
+    res.status(StatusCodes.OK).json({
+      success: true,
+      message: 'Booking cancelled successfully',
+      data: cancelled,
+    });
   } catch (error) {
     next(error);
   }

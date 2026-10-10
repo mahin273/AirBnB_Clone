@@ -5,14 +5,17 @@ import { redlock } from '../config/redis.config.ts';
 import type { Lock } from 'redlock';
 import type { CreateBookingDto } from '../dto/booking.dto.ts';
 import {
+  cancelBooking,
   confirmBooking,
   createBooking,
   createIdempotencyKey,
   finalizeIdempotencyKey,
   findOverlappingBookings,
+  getBookingById,
+  getBookingsByUserId,
   getIdempontentKey,
 } from "../repositories/booking.repository.ts";
-import { BadRequestError, ConflictError, NotFoundError } from '../utils/errors/app.error.ts';
+import { BadRequestError, ConflictError, ForbiddenError, NotFoundError } from '../utils/errors/app.error.ts';
 import { generateIdempotencyKey } from '../utils/helpers/generateIdempotencyKey.ts';
 
 export async function createBookingService(createBookingDTO: CreateBookingDto) {
@@ -113,4 +116,42 @@ export async function confirmBookingService(idempotencyKey: string) {
 
     return booking;
   });
+}
+
+export async function getMyBookingsService(userId: number) {
+  logger.info('Fetching bookings for user', { userId });
+  return await getBookingsByUserId(userId);
+}
+
+export async function getBookingByIdService(bookingId: number, requestingUserId: number) {
+  logger.info('Fetching booking by id', { bookingId, requestingUserId });
+  const booking = await getBookingById(bookingId);
+  if (!booking) {
+    throw new NotFoundError(`Booking with id ${bookingId} not found`);
+  }
+  if (booking.userId !== requestingUserId) {
+    throw new ForbiddenError('You do not have permission to view this booking');
+  }
+  return booking;
+}
+
+export async function cancelBookingService(bookingId: number, requestingUserId: number) {
+  logger.info('Attempting to cancel booking', { bookingId, requestingUserId });
+  const booking = await getBookingById(bookingId);
+  if (!booking) {
+    throw new NotFoundError(`Booking with id ${bookingId} not found`);
+  }
+  if (booking.userId !== requestingUserId) {
+    throw new ForbiddenError('You do not have permission to cancel this booking');
+  }
+  if (booking.bookingStatus === 'CANCELLED') {
+    throw new BadRequestError('Booking is already cancelled');
+  }
+  if (new Date() >= booking.checkInDate) {
+    throw new BadRequestError('Cannot cancel a booking that has already started or passed');
+  }
+
+  const cancelled = await cancelBooking(bookingId);
+  logger.info('Booking cancelled successfully', { bookingId });
+  return cancelled;
 }

@@ -72,6 +72,18 @@ export async function getBookingById(bookingId:number){
   return booking;
 }
 
+export async function getBookingsByUserId(userId: number) {
+  const bookings = await prismaClient.booking.findMany({
+    where: {
+      userId,
+    },
+    orderBy: {
+      createdAt: 'desc',
+    },
+  });
+  return bookings;
+}
+
 // export async function updateBookingStatus(bookingId:number,status:Prisma.EnumBookingStatusFieldUpdateOperationsInput){
 //   const confirmBooking = await prismaClient.booking.update({
 //     where:{

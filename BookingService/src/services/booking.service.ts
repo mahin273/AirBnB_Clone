@@ -17,6 +17,10 @@ import {
 } from "../repositories/booking.repository.ts";
 import { BadRequestError, ConflictError, ForbiddenError, NotFoundError } from '../utils/errors/app.error.ts';
 import { generateIdempotencyKey } from '../utils/helpers/generateIdempotencyKey.ts';
+import {
+  sendBookingConfirmationNotification,
+  sendBookingCancellationNotification,
+} from '../producers/notification.producer.ts';
 
 export async function createBookingService(createBookingDTO: CreateBookingDto) {
   const ttl = serverConfig.LOCK_TTL;
@@ -95,9 +99,9 @@ export async function createBookingService(createBookingDTO: CreateBookingDto) {
   }
 }
 
-export async function confirmBookingService(idempotencyKey: string) {
+export async function confirmBookingService(idempotencyKey: string, userEmail?: string) {
   logger.info('Starting confirm booking transaction', { idempotencyKey });
-  return await prismaClient.$transaction(async (tx) => {
+  const booking = await prismaClient.$transaction(async (tx) => {
     const idempotencyKeyData = await getIdempontentKey(tx, idempotencyKey);
     if (!idempotencyKeyData || !idempotencyKeyData.bookingId) {
       throw new NotFoundError("Idempotency key is not found");
@@ -107,15 +111,22 @@ export async function confirmBookingService(idempotencyKey: string) {
       throw new BadRequestError("Idempotency key is already finalized");
     }
 
-    const booking = await confirmBooking(tx, idempotencyKeyData.bookingId);
+    const confirmed = await confirmBooking(tx, idempotencyKeyData.bookingId);
     await finalizeIdempotencyKey(tx, idempotencyKey);
     logger.info('Booking confirmed and idempotency key finalized', {
-      bookingId: booking.id,
+      bookingId: confirmed.id,
       idempotencyKey,
     });
 
-    return booking;
+    return confirmed;
   });
+
+  await sendBookingConfirmationNotification(
+    booking,
+    userEmail || `user_${booking.userId}@example.com`
+  );
+
+  return booking;
 }
 
 export async function getMyBookingsService(userId: number) {
@@ -135,7 +146,11 @@ export async function getBookingByIdService(bookingId: number, requestingUserId:
   return booking;
 }
 
-export async function cancelBookingService(bookingId: number, requestingUserId: number) {
+export async function cancelBookingService(
+  bookingId: number,
+  requestingUserId: number,
+  userEmail?: string
+) {
   logger.info('Attempting to cancel booking', { bookingId, requestingUserId });
   const booking = await getBookingById(bookingId);
   if (!booking) {
@@ -153,5 +168,11 @@ export async function cancelBookingService(bookingId: number, requestingUserId: 
 
   const cancelled = await cancelBooking(bookingId);
   logger.info('Booking cancelled successfully', { bookingId });
+
+  await sendBookingCancellationNotification(
+    cancelled,
+    userEmail || `user_${cancelled.userId}@example.com`
+  );
+
   return cancelled;
 }

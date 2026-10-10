@@ -26,8 +26,9 @@ export const createBookingController = async (req: Request, res: Response, next:
 
 export const confirmBookingController = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const userEmail = req.user?.email;
     logger.info('Confirm booking request received', { idempotencyKey: req.body.idempotencyKey });
-    const booking = await confirmBookingService(req.body.idempotencyKey);
+    const booking = await confirmBookingService(req.body.idempotencyKey, userEmail);
     logger.info('Booking confirmed successfully', { bookingId: booking.id });
     res.status(StatusCodes.OK).json(booking);
   } catch (error) {
@@ -68,7 +69,8 @@ export const cancelBookingController = async (req: Request, res: Response, next:
   try {
     const bookingId = Number(req.params.id);
     const userId = req.user!.id;
-    const cancelled = await cancelBookingService(bookingId, userId);
+    const userEmail = req.user?.email;
+    const cancelled = await cancelBookingService(bookingId, userId, userEmail);
     res.status(StatusCodes.OK).json({
       success: true,
       message: 'Booking cancelled successfully',

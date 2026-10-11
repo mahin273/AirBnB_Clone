@@ -63,10 +63,12 @@ func (app *Application) Run() error{
 	userService := services.NewUserService(userRepository)
 	userController := controllers.NewUserController(userService)
 	userRouter := routers.NewUserRouter(userController)
+	apartmentRouter := routers.NewApartmentRouter()
+	bookingRouter := routers.NewBookingRouter()
 
 	server := &http.Server{
 		Addr:         app.Config.Addr,
-		Handler:      routers.SetupRouter(userRouter),
+		Handler:      routers.SetupRouter(userRouter, apartmentRouter, bookingRouter),
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 10 * time.Second,
 		IdleTimeout:  60 * time.Second,

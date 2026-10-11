@@ -1,0 +1,3 @@
+CREATE DATABASE IF NOT EXISTS airbnb_apiGateway;
+CREATE DATABASE IF NOT EXISTS airbnb_apartment;
+CREATE DATABASE IF NOT EXISTS airbnb_booking_dev;

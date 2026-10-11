@@ -1,0 +1,135 @@
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: airbnb-mysql
+    restart: unless-stopped
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./docker/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - airbnb-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: airbnb-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - airbnb-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  apartment-service:
+    build:
+      context: ./ApartmentService
+      dockerfile: Dockerfile
+    container_name: airbnb-apartment-service
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      PORT: 3000
+      DB_USER: root
+      DB_PASSWORD: root
+      DB_NAME: airbnb_apartment
+      DB_HOST: mysql
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - airbnb-network
+
+  booking-service:
+    build:
+      context: ./BookingService
+      dockerfile: Dockerfile
+    container_name: airbnb-booking-service
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    environment:
+      PORT: 3001
+      DATABASE_URL: "mysql://root:root@mysql:3306/airbnb_booking_dev"
+      DATABASE_USER: root
+      DATABASE_PASSWORD: root
+      DATABASE_NAME: airbnb_booking_dev
+      DATABASE_HOST: mysql
+      DATABASE_PORT: 3306
+      REDIS_SERVER_URL: "redis://redis:6379"
+      LOCK_TTL: 60000
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - airbnb-network
+
+  notification-service:
+    build:
+      context: ./NotificationService
+      dockerfile: Dockerfile
+    container_name: airbnb-notification-service
+    restart: unless-stopped
+    ports:
+      - "3002:3002"
+    environment:
+      PORT: 3002
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - airbnb-network
+
+  api-gateway:
+    build:
+      context: ./ApiGateway
+      dockerfile: Dockerfile
+    container_name: airbnb-api-gateway
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      PORT: ":8080"
+      DB_NAME: airbnb_apiGateway
+      DB_ADDR: mysql:3306
+      DB_USER: root
+      DB_PASSWORD: root
+      DB_NET: tcp
+      JWT_SECRET: super_secret_jwt_key_airbnb_2026
+      APARTMENT_SERVICE_URL: "http://apartment-service:3000"
+      BOOKING_SERVICE_URL: "http://booking-service:3001"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      apartment-service:
+        condition: service_started
+      booking-service:
+        condition: service_started
+    networks:
+      - airbnb-network
+
+networks:
+  airbnb-network:
+    driver: bridge
+
+volumes:
+  mysql_data:
+  redis_data:

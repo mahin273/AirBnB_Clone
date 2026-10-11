@@ -296,12 +296,3 @@ cd BookingService && ./node_modules/.bin/tsc --noEmit && cd ..
 # NotificationService Build & Asset Bundling
 cd NotificationService && npm run build && cd ..
 ```
-
----
-
-## Learning Curriculum
-
-This platform was built systematically following the **Learn-by-Building** workflow:
-- Complete breakdown: [`LearningDocs_Airbnb_Clone/INDEX.md`](LearningDocs_Airbnb_Clone/INDEX.md)
-- Architectural synthesis: [`LearningDocs_Airbnb_Clone/SUMMARY.md`](LearningDocs_Airbnb_Clone/SUMMARY.md)
-- Running engineering log: [`LearningDocs_Airbnb_Clone/mistakes.md`](LearningDocs_Airbnb_Clone/mistakes.md)

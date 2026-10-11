@@ -1,189 +1,307 @@
-# Airbnb Clone Microservices
+# Airbnb Clone Microservices Platform
 
-This project is a lodging and travel booking platform that allows hosts to list their properties and guests to find and reserve accommodations for their trips.
+An enterprise-grade, distributed lodging and hospitality reservation platform engineered as event-driven microservices. Built with Go, Node.js, TypeScript, MariaDB/MySQL, Redis, Prisma, and Sequelize, this platform demonstrates production-ready patterns for distributed mutual exclusion, idempotent transactions, asynchronous event streaming, and edge API gateway routing.
 
-## Architecture
+---
+
+## Architecture Overview
 
 ```mermaid
-graph TD
-    Client[Client Browser / API Client] -->|Signup/Signin| Gateway[API Gateway :8080]
-    Client -->|Manage Apartments| ApartmentSvc[Apartment Service :3000]
-    Client -->|Book & Confirm| BookingSvc[Booking Service :3001]
-    
-    Gateway -->|MySQL| GatewayDB[(API Gateway DB)]
-    ApartmentSvc -->|MySQL| ApartmentDB[(Apartment DB)]
-    BookingSvc -->|MariaDB / MySQL| BookingDB[(Booking DB)]
-    BookingSvc -->|Acquire/Release Locks| Redis[(Redis Server :6379)]
-    
-    NotificationSvc[Notification Service :3002] -->|Process Jobs| Redis
-    NotificationSvc -->|Send Email| SMTP[SMTP Server]
+flowchart TD
+    Client[Client / Web / Mobile App] -->|HTTP / HTTPS :8080| Gateway[ApiGateway :8080 - Go / Chi]
+
+    subgraph EdgePerimeter [API Gateway Security & Routing Perimeter]
+        Gateway --> RateLimiter[RateLimiter: 60 req/min, 10 burst]
+        RateLimiter --> ChiRouter[Chi Radix Trie Router]
+        ChiRouter -->|Auth: /signup, /signin| UserDB[(MySQL: airbnb_apiGateway)]
+        ChiRouter -->|Public: GET /apartments| ProxyEngine[Reverse Proxy Engine]
+        ChiRouter -->|Protected: POST, PUT, DELETE| AuthMW[RequireAuth: JWT Verification]
+        AuthMW -->|Cleanses Spoofed Headers & Injects Context| ProxyEngine
+    end
+
+    subgraph ServiceMesh [Domain Microservices]
+        ProxyEngine -->|Forward /api/v1/apartments| AptSvc[ApartmentService :3000 - Express / Sequelize]
+        ProxyEngine -->|Forward /api/v1/bookings| BookSvc[BookingService :3001 - Express / Prisma]
+        
+        AptSvc --> AptDB[(MySQL: airbnb_apartment)]
+        BookSvc --> BookDB[(MariaDB / MySQL: airbnb_booking_dev)]
+    end
+
+    subgraph AsyncBackbone [Concurrency & Event Messaging Backbone]
+        BookSvc <-->|Redlock Distributed Mutex| RedisLocks[(Redis :6379 Locks)]
+        BookSvc -->|Publish payload:mail| RedisQueue[(Redis :6379 queue-mailer)]
+        
+        RedisQueue -->|Consume & Validate Zod Schema| NotifWorker[NotificationService :3002 - BullMQ Worker]
+        NotifWorker --> TemplateEngine[Handlebars Template Compiler]
+        TemplateEngine --> SMTP[External SMTP / Mailer]
+    end
 ```
 
-## Tech Stack
+---
 
-* **Go**: Chosen for the API Gateway because of its high execution speed, small resource footprint, and robust concurrency primitives, which make it ideal for handling authentication and routing requests.
-* **Node.js**: Serves as the server-side runtime environment for the Apartment, Booking, and Notification microservices, enabling rapid development and consistency across services.
-* **Express**: Used as the web framework for the Node.js services due to its minimalist design, simplicity, and flexibility in constructing REST APIs.
-* **TypeScript**: Adopted for the Node.js services to provide compile-time type safety, better tooling, and clearer contract definitions across the services.
-* **Sequelize ORM**: Utilized in the Apartment Service to define data models, manage relationships, and handle database migrations for MySQL.
-* **Prisma ORM**: Utilized in the Booking Service to generate a type-safe client for schema management and relational queries.
-* **MySQL / MariaDB**: Used as the primary relational databases to ensure data consistency and full ACID compliance for transactions, listing availability, and user accounts.
-* **Redis**: Serves as the caching and storage layer for distributed locking (Redlock) in the Booking Service and acts as the job queue backend for BullMQ in the Notification Service.
-* **BullMQ**: Implemented in the Notification Service to handle reliable, asynchronous job queue processing for email delivery.
-* **Nodemailer**: Used in the Notification Service to dispatch transactional emails over SMTP.
-* **Zod**: Used across Node.js microservices for schema-based request validation, ensuring payload integrity at the API boundaries.
-* **Winston**: Configured for structured, daily-rotating logging to ease debugging and audit operations.
-* **Goose**: Implemented in the API Gateway for version-controlled database schema migrations.
-* **Chi**: Used as the router for the Go API Gateway because of its speed, minimal overhead, and standard library compatibility.
+## Microservices Breakdown
 
-## How to Run Locally
+### 1. ApiGateway (Port 8080)
+- **Language & Framework**: Go 1.23+, Chi router.
+- **Responsibilities**:
+  - Edge security perimeter enforcing client IP rate limiting (60 requests/minute, 10 burst).
+  - User identity authentication (JWT Bearer tokens), user registration, and credential hashing with bcrypt.
+  - Reverse proxy engine with Go 1.20+ `httputil.ProxyRequest` and `Rewrite` hooks.
+  - Zero-trust header cleansing: strips client-supplied `X-User-ID` and `X-User-Email` headers to prevent identity spoofing, and injects verified identity from JWT context.
+  - Connection pooling with dedicated `http.Transport` (100 idle connections, 90s idle timeout, 15s header timeout).
+  - Standardized JSON `502 Bad Gateway` error handling when downstream services are unreachable.
+
+### 2. ApartmentService (Port 3000)
+- **Language & Framework**: Node.js 22, Express 5, TypeScript (strict mode), Sequelize ORM.
+- **Responsibilities**:
+  - Apartment listing lifecycle: create, browse, view details, and soft delete.
+  - Host ownership enforcement: verifies requesting host owns the listing before allowing modifications.
+  - Room Category management: sub-resource routing using `express.Router({ mergeParams: true })` for pricing, guest capacity, and room types.
+  - Concrete Room inventory tracking: manages room availability state transitions (`available`, `booked`, `maintenance`).
+  - Cross-entity integrity defense: validates that category IDs belong strictly to the target apartment before assigning physical rooms.
+
+### 3. BookingService (Port 3001)
+- **Language & Framework**: Node.js 22, Express 5, TypeScript (strict mode), Prisma ORM, Redlock, BullMQ.
+- **Responsibilities**:
+  - Stay interval management: strictly validates that `checkOutDate > checkInDate` and enforces composite indices (`[propertyId, bookingStatus]`).
+  - Distributed Concurrency Control: acquires distributed locks via Redlock on `property:<id>` before evaluating room availability.
+  - Zero Double-Booking Guarantee: executes atomic interval collision checks (`findOverlappingBookings`) inside the critical section.
+  - Lifecycle hardening: guarantees lock release via `try...finally` blocks and returns semantic `409 Conflict` on lock contention.
+  - Idempotent finalization: uses `IdempotencyKey` records within Prisma `$transaction` blocks to prevent duplicate charges or double confirmations.
+  - Booking cancellation: atomic state transitions with IDOR checks and start-date boundary defenses.
+  - Asynchronous event emission: pushes typed confirmation and cancellation jobs to Redis `queue-mailer` post-transaction.
+
+### 4. NotificationService (Port 3002)
+- **Language & Framework**: Node.js 22, Express 5, TypeScript (strict mode), BullMQ, Handlebars, Nodemailer.
+- **Responsibilities**:
+  - Asynchronous email queue worker processing jobs from `queue-mailer`.
+  - Schema contract validation: validates inbound job payloads against strict Zod discriminated union schemas (`NotificationPayload`).
+  - Template rendering: compiles Handlebars templates (`booking-confirmation.hbs`, `booking-cancellation.hbs`) with dynamic variables.
+  - Resilient dispatch: configures exponential backoff retries (`attempts: 3`, initial delay 2000ms) with dead-letter queue isolation.
+
+---
+
+## Core Engineering Patterns
+
+### 1. Database-per-Service Architecture
+Each microservice owns its private relational schema:
+- `airbnb_apiGateway`: Users, credentials, timestamps.
+- `airbnb_apartment`: Apartments, room categories, physical room inventories.
+- `airbnb_booking_dev`: Bookings, stay dates, idempotency keys.
+
+Services never perform cross-database queries or foreign keys across service boundaries. Cross-service data is correlated via verified identifiers forwarded through HTTP headers and message payloads.
+
+### 2. Zero-Trust Gateway Header Cleansing
+Downstream services trust `X-User-ID` and `X-User-Email` headers because they reside within the private network. To prevent external clients from injecting arbitrary user IDs:
+```go
+// ApiGateway/utils/proxy.go
+r.Out.Header.Del("X-User-ID")
+r.Out.Header.Del("X-User-Email")
+
+if userID, ok := GetUserIDFromContext(r.In.Context()); ok {
+    r.Out.Header.Set("X-User-ID", fmt.Sprintf("%d", userID))
+}
+```
+
+### 3. Distributed Mutual Exclusion (Redlock)
+To protect high-demand listings from concurrent booking collisions:
+```typescript
+const lock = await redlock.acquire([bookingResource], ttl);
+try {
+  const overlapping = await findOverlappingBookings(propertyId, checkIn, checkOut);
+  if (overlapping.length > 0) throw new ConflictError('Selected dates already booked');
+  return await createBooking(...);
+} finally {
+  await lock.release();
+}
+```
+
+### 4. Transaction-First Side-Effect Execution
+External side-effects (message queue pushes) run strictly **after** database transactions commit. If the database transaction rolls back, no message is enqueued. If Redis fails, the error is logged and swallowed so it does not abort a legally confirmed reservation.
+
+---
+
+## API Reference Matrix
+
+| Method | Public Gateway Endpoint | Downstream Target | Auth Required | Description |
+| :--- | :--- | :--- | :---: | :--- |
+| `POST` | `/signup` | Local ApiGateway | No | Register new user account |
+| `POST` | `/signin` | Local ApiGateway | No | Authenticate user and receive JWT token |
+| `GET` | `/users/profile` | Local ApiGateway | Yes | Retrieve authenticated user profile |
+| `GET` | `/api/v1/apartments` | ApartmentService | No | Browse published apartment listings |
+| `GET` | `/api/v1/apartments/:id` | ApartmentService | No | Retrieve detailed apartment listing |
+| `POST` | `/api/v1/apartments` | ApartmentService | Yes (Host) | Create new apartment listing |
+| `DELETE` | `/api/v1/apartments/:id` | ApartmentService | Yes (Host) | Soft-delete owned apartment listing |
+| `GET` | `/api/v1/apartments/:id/categories` | ApartmentService | No | List room tiers for an apartment |
+| `POST` | `/api/v1/apartments/:id/categories` | ApartmentService | Yes (Host) | Create room tier (pricing, guests) |
+| `POST` | `/api/v1/categories/:id/rooms` | ApartmentService | Yes (Host) | Add physical room inventory |
+| `PUT` | `/api/v1/rooms/:id/status` | ApartmentService | Yes (Host) | Transition room status (`available`/`booked`/`maintenance`) |
+| `POST` | `/api/v1/bookings` | BookingService | Yes (Guest) | Initiate reservation (acquires Redlock) |
+| `POST` | `/api/v1/bookings/confirm` | BookingService | Yes (Guest) | Finalize idempotency key and confirm booking |
+| `GET` | `/api/v1/bookings/my-bookings` | BookingService | Yes (Guest) | Retrieve reservation history for authenticated user |
+| `GET` | `/api/v1/bookings/:id` | BookingService | Yes (Guest) | Retrieve specific reservation details (IDOR protected) |
+| `POST` | `/api/v1/bookings/:id/cancel` | BookingService | Yes (Guest) | Cancel active reservation (emits cancellation event) |
+
+---
+
+## Quickstart: Docker Compose Orchestration
+
+The entire multi-service platform, including databases and message queues, boots with a single command.
 
 ### Prerequisites
+- Docker Engine 24.x or higher
+- Docker Compose v2
 
-* Node.js (version 20 or higher)
-* Go (version 1.26 or higher)
-* Redis server (running on localhost:6379)
-* MySQL database server (running on localhost:3306)
+### One-Command Boot
+```bash
+docker compose up -d --build
+```
 
-### Database Configuration
+### Healthcheck & Container Status
+```bash
+docker compose ps
+```
 
-Create the three required databases in MySQL:
+All 6 containers will spin up on the unified bridge network `airbnb-network`:
+- `airbnb-mysql` (:3306) - Initialized with all 3 schemas via `docker/init.sql`.
+- `airbnb-redis` (:6379) - In-memory cache for distributed locks and BullMQ queues.
+- `airbnb-api-gateway` (:8080) - Edge routing and authentication.
+- `airbnb-apartment-service` (:3000) - Inventory catalog.
+- `airbnb-booking-service` (:3001) - Reservation engine.
+- `airbnb-notification-service` (:3002) - Email worker.
 
+To view logs:
+```bash
+docker compose logs -f
+```
+
+To stop containers:
+```bash
+docker compose down -v
+```
+
+---
+
+## Local Development (Without Docker)
+
+### Prerequisites
+- Go 1.23+
+- Node.js 22+
+- MySQL 8.x running on `localhost:3306`
+- Redis 7.x running on `localhost:6379`
+
+### 1. Database Initialization
+Execute in MySQL:
 ```sql
-CREATE DATABASE airbnb_apiGateway;
-CREATE DATABASE airbnb_apartment;
-CREATE DATABASE airbnb_booking_dev;
+CREATE DATABASE IF NOT EXISTS airbnb_apiGateway;
+CREATE DATABASE IF NOT EXISTS airbnb_apartment;
+CREATE DATABASE IF NOT EXISTS airbnb_booking_dev;
 ```
 
-Update the configuration variables in the `.env` files of each microservice. Ensure that distinct ports are configured to avoid local port conflicts.
+### 2. Service Setup & Migrations
 
-#### API Gateway Config (`ApiGateway/.env`)
+```bash
+# ApiGateway
+cd ApiGateway
+go mod download
+go test ./...
+go run main.go
 
+# ApartmentService
+cd ../ApartmentService
+npm install
+npm run migrate
+npm run dev
+
+# BookingService
+cd ../BookingService
+npm install
+npx prisma db push
+npm run dev
+
+# NotificationService
+cd ../NotificationService
+npm install
+npm run build
+npm run dev
+```
+
+---
+
+## Configuration Reference
+
+### ApiGateway (`ApiGateway/.env`)
 ```env
-PORT=":8080"
-DB_NAME="airbnb_apiGateway"
-DB_ADDR="127.0.0.1:3306"
-DB_USER="YOUR_MYSQL_USER"
-DB_PASSWORD="YOUR_MYSQL_PASSWORD"
-DB_NET="tcp"
-JWT_SECRET="YOUR_JWT_SECRET"
+PORT=:8080
+DB_NAME=airbnb_apiGateway
+DB_ADDR=127.0.0.1:3306
+DB_USER=root
+DB_PASSWORD=root
+DB_NET=tcp
+JWT_SECRET=super_secret_jwt_key_airbnb_2026
+APARTMENT_SERVICE_URL=http://localhost:3000
+BOOKING_SERVICE_URL=http://localhost:3001
 ```
 
-#### Apartment Service Config (`ApartmentService/.env`)
-
+### ApartmentService (`ApartmentService/.env`)
 ```env
 PORT=3000
-DB_USER=YOUR_MYSQL_USER
-DB_PASSWORD=YOUR_MYSQL_PASSWORD
+DB_USER=root
+DB_PASSWORD=root
 DB_NAME=airbnb_apartment
-DB_HOST=localhost
+DB_HOST=127.0.0.1
 ```
 
-#### Booking Service Config (`BookingService/.env`)
-
+### BookingService (`BookingService/.env`)
 ```env
 PORT=3001
-DATABASE_URL="mysql://YOUR_MYSQL_USER:YOUR_MYSQL_PASSWORD@127.0.0.1:3306/airbnb_booking_dev"
-DATABASE_USER="YOUR_MYSQL_USER"
-DATABASE_PASSWORD="YOUR_MYSQL_PASSWORD"
-DATABASE_NAME="airbnb_booking_dev"
-DATABASE_HOST="127.0.0.1"
+DATABASE_URL=mysql://root:root@127.0.0.1:3306/airbnb_booking_dev
+DATABASE_USER=root
+DATABASE_PASSWORD=root
+DATABASE_NAME=airbnb_booking_dev
+DATABASE_HOST=127.0.0.1
 DATABASE_PORT=3306
-REDIS_SERVER_URL="redis://127.0.0.1:6379"
+REDIS_SERVER_URL=redis://127.0.0.1:6379
 LOCK_TTL=60000
 ```
 
-#### Notification Service Config (`NotificationService/.env`)
-
+### NotificationService (`NotificationService/.env`)
 ```env
 PORT=3002
 REDIS_HOST=localhost
 REDIS_PORT=6379
-SMTP_HOST=YOUR_SMTP_HOST
-SMTP_PORT=587
-SMTP_USER=YOUR_SMTP_USER
-SMTP_PASS=YOUR_SMTP_PASS
-SMTP_FROM=YOUR_SMTP_FROM
+SMTP_HOST=smtp.mailtrap.io
+SMTP_PORT=2525
+SMTP_USER=your_smtp_user
+SMTP_PASS=your_smtp_password
+SMTP_FROM=no-reply@airbnb-clone.local
 ```
 
-### Installation and Initialization
+---
 
-1. Install dependencies for all Node.js services:
-   ```bash
-   cd ApartmentService && npm install && cd ..
-   cd BookingService && npm install && cd ..
-   cd NotificationService && npm install && cd ..
-   ```
+## Verification & Testing
 
-2. Generate the Prisma Client for the Booking Service:
-   ```bash
-   cd BookingService
-   npx prisma generate
-   cd ..
-   ```
+Run all test suites across the entire repository:
 
-3. Run migrations for the Go API Gateway:
-   ```bash
-   cd ApiGateway
-   goose -dir=db/migrations mysql "YOUR_MYSQL_USER:YOUR_MYSQL_PASSWORD@tcp(127.0.0.1:3306)/airbnb_apiGateway" up
-   cd ..
-   ```
+```bash
+# Go API Gateway Unit & Router Integration Tests
+cd ApiGateway && go test -v ./... && cd ..
 
-4. Run migrations for the Apartment Service:
-   ```bash
-   cd ApartmentService
-   npm run migrate
-   cd ..
-   ```
+# ApartmentService TypeScript Compilation
+cd ApartmentService && ./node_modules/.bin/tsc --noEmit && cd ..
 
-5. Push the database schema for the Booking Service:
-   ```bash
-   cd BookingService
-   npx prisma db push
-   cd ..
-   ```
+# BookingService TypeScript Compilation
+cd BookingService && ./node_modules/.bin/tsc --noEmit && cd ..
 
-### Running the Services
+# NotificationService Build & Asset Bundling
+cd NotificationService && npm run build && cd ..
+```
 
-Start each service in a separate terminal window or tab:
+---
 
-* **API Gateway**:
-  ```bash
-  cd ApiGateway
-  go run main.go
-  ```
+## Learning Curriculum
 
-* **Apartment Service**:
-  ```bash
-  cd ApartmentService
-  npm run dev
-  ```
-
-* **Booking Service**:
-  ```bash
-  cd BookingService
-  npm run dev
-  ```
-
-* **Notification Service**:
-  ```bash
-  cd NotificationService
-  npm run dev
-  ```
-
-## Known Limitations
-
-* **API Gateway Routing**: The API Gateway functions as a standalone identity and profile service. It does not route, proxy, or dispatch incoming traffic to downstream services like the Apartment or Booking services. Clients must target those service ports directly.
-* **Port Allocation**: The default templates for the services assign multiple servers to port 3000, which causes local port conflicts unless manually reconfigured in the environment files.
-* **Isolated Relational DBs**: Each service requires its own relational database scheme. Managing separate credentials, schemas, and instances locally creates administrative overhead.
-* **Mock Notifications**: The Notification Service enqueues a mock test email job automatically on startup rather than reacting to dynamic bookings or user registration events from other microservices.
-* **Decoupled Security**: The API Gateway issues user JWTs, but downstream APIs (Apartment and Booking services) do not yet validate these tokens in their middleware to restrict access.
-* **Strict Type Compilation Error**: The Notification Service fails strict TypeScript compilation due to an unused import (`mailerQueue` inside `src/server.ts`) that is flagged by the compiler.
-
-## What You'd Do Differently
-
-* **Adopt an Event Broker**: Integrate a messaging broker like RabbitMQ or Apache Kafka. This would allow the Booking Service to publish events like `booking.created`, and the Notification Service to subscribe to those events asynchronously, decoupling the services completely.
-* **Route Requests Through Gateway**: Configure the Go API Gateway as a true reverse proxy using paths (e.g., routing `/apartments` to `ApartmentService`). This allows central management of cross-cutting concerns like security middleware, authorization checks, and rate limiting.
-* **Docker Compose Orchestration**: Author a root-level `docker-compose.yml` file to initialize Redis, MySQL, and all four service containers together, handling database startup scripts and port binding automatically.
-* **Monorepo Repository Architecture**: Migrate the codebase to a monorepo setup (using Turborepo or Nx) to centralize type declarations, share validation schemas, and write unified middleware packages across services.
-* **Shared Authentication Handler**: Create a reusable package for JWT verification that can be integrated as middleware across all services, ensuring authorization policies are enforced identically.
+This platform was built systematically following the **Learn-by-Building** workflow:
+- Complete breakdown: [`LearningDocs_Airbnb_Clone/INDEX.md`](LearningDocs_Airbnb_Clone/INDEX.md)
+- Architectural synthesis: [`LearningDocs_Airbnb_Clone/SUMMARY.md`](LearningDocs_Airbnb_Clone/SUMMARY.md)
+- Running engineering log: [`LearningDocs_Airbnb_Clone/mistakes.md`](LearningDocs_Airbnb_Clone/mistakes.md)

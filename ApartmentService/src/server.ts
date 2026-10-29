@@ -30,4 +30,6 @@ app.listen(PORT,async()=>{
     logger.info(`Server is running on http://localhost: ${PORT}`);
     await sequelize.authenticate();
     logger.info('Database connection has been established successfully.');
+    await sequelize.sync();
+    logger.info('Database synchronized successfully.');
 })

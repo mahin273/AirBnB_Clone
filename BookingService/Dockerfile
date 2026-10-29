@@ -37,4 +37,4 @@ EXPOSE 3001
 
 USER node
 
-CMD ["node", "dist/server.js"]
+CMD ["node", "dist/src/server.js"]

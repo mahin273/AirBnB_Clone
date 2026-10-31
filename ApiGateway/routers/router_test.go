@@ -140,6 +140,22 @@ func TestApartmentRouter_Routes(t *testing.T) {
 		}
 	})
 
+	t.Run("CORS preflight OPTIONS request returns expected headers", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodOptions, "/api/v1/apartments", nil)
+		req.Header.Set("Origin", "http://localhost:3000")
+		req.Header.Set("Access-Control-Request-Method", "POST")
+		rec := httptest.NewRecorder()
+
+		chiMux.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusOK {
+			t.Errorf("expected 200 OK for OPTIONS preflight, got %d", rec.Code)
+		}
+		if origin := rec.Header().Get("Access-Control-Allow-Origin"); origin != "http://localhost:3000" {
+			t.Errorf("expected Access-Control-Allow-Origin 'http://localhost:3000', got '%s'", origin)
+		}
+	})
+
 	t.Run("Legacy /properties/42 rewritten to /api/v1/apartments/42", func(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, "/properties/42", nil)
 		rec := httptest.NewRecorder()

@@ -17,14 +17,14 @@ bookingRouter.use(extractUserContext);
 bookingRouter.post(
   '/',
   requireUserContext,
-  validateRequestBody(CreateBookingSchema as any),
+  validateRequestBody(CreateBookingSchema),
   createBookingController
 );
 
 bookingRouter.post(
   '/confirm',
   requireUserContext,
-  validateRequestBody(FinalizeBookingSchema as any),
+  validateRequestBody(FinalizeBookingSchema),
   confirmBookingController
 );
 

@@ -9,6 +9,9 @@ export async function createApartmentService(apartmentData: createApartmentDto) 
 
 export async function getApartmentByIdService(id: number) {
   const apartment = await apartmentRepository.findById(id);
+  if (!apartment) {
+    throw new NotFoundError(`Apartment with id ${id} not found`);
+  }
   return apartment;
 }
 

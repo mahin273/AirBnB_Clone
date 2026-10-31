@@ -15,18 +15,15 @@ abstract class BaseRepository<T extends Model> {
     }
 
     async findAll(): Promise<T[]> {
-        const record = await this.model.findAll();
-        if(!record){
-            throw new NotFoundError();
-        }
-        logger.info(`${this.modelName} - findAll: ${record.length} records found`);
-        return record;
+        const records = await this.model.findAll();
+        logger.info(`${this.modelName} - findAll: ${records.length} records found`);
+        return records;
     }
 
     async findById(id: number): Promise<T | null> {
         const record = await this.model.findByPk(id);
         if(!record){
-            throw new NotFoundError();
+            throw new NotFoundError(`${this.modelName} with id ${id} not found`);
         }
         logger.info(`${this.modelName} - findById: record fetched with id ${id}`);
         return record;
@@ -51,7 +48,7 @@ abstract class BaseRepository<T extends Model> {
     async softDelete(id:number):Promise<T|null>{
         const record = await this.model.findByPk(id);
         if(!record){
-            throw new NotFoundError();
+            throw new NotFoundError(`${this.modelName} with id ${id} not found`);
         }
         await record.destroy();
         logger.info(`${this.modelName} - softDelete: record with id ${id} soft deleted`);

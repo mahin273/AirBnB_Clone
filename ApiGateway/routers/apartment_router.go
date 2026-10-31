@@ -31,13 +31,20 @@ func (ar *ApartmentRouter) Register(r chi.Router) {
 		log.Fatalf("Failed to initialize Property Service reverse proxy: %v", err)
 	}
 
-	resourcePaths := []string{
-		"/api/v1/apartments",
-		"/api/v1/categories",
-		"/api/v1/rooms",
-	}
+	r.Route("/api/v1/apartments", func(sub chi.Router) {
+		sub.With(middlewares.RequireAuth).Get("/my-apartments", proxyHandler)
+		sub.Get("/*", proxyHandler)
 
-	for _, path := range resourcePaths {
+		sub.Group(func(protected chi.Router) {
+			protected.Use(middlewares.RequireAuth)
+			protected.Post("/*", proxyHandler)
+			protected.Put("/*", proxyHandler)
+			protected.Patch("/*", proxyHandler)
+			protected.Delete("/*", proxyHandler)
+		})
+	})
+
+	for _, path := range []string{"/api/v1/categories", "/api/v1/rooms"} {
 		r.Route(path, func(sub chi.Router) {
 			sub.Get("/*", proxyHandler)
 
@@ -45,18 +52,21 @@ func (ar *ApartmentRouter) Register(r chi.Router) {
 				protected.Use(middlewares.RequireAuth)
 				protected.Post("/*", proxyHandler)
 				protected.Put("/*", proxyHandler)
+				protected.Patch("/*", proxyHandler)
 				protected.Delete("/*", proxyHandler)
 			})
 		})
 	}
 
 	r.Route("/properties", func(sub chi.Router) {
+		sub.With(middlewares.RequireAuth).Get("/my-apartments", propertyProxyHandler)
 		sub.Get("/*", propertyProxyHandler)
 
 		sub.Group(func(protected chi.Router) {
 			protected.Use(middlewares.RequireAuth)
 			protected.Post("/*", propertyProxyHandler)
 			protected.Put("/*", propertyProxyHandler)
+			protected.Patch("/*", propertyProxyHandler)
 			protected.Delete("/*", propertyProxyHandler)
 		})
 	})

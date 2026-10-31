@@ -26,9 +26,10 @@ export const createBookingController = async (req: Request, res: Response, next:
 
 export const confirmBookingController = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const userId = req.user!.id;
     const userEmail = req.user?.email;
-    logger.info('Confirm booking request received', { idempotencyKey: req.body.idempotencyKey });
-    const booking = await confirmBookingService(req.body.idempotencyKey, userEmail);
+    logger.info('Confirm booking request received', { idempotencyKey: req.body.idempotencyKey, userId });
+    const booking = await confirmBookingService(req.body.idempotencyKey, userId, userEmail);
     logger.info('Booking confirmed successfully', { bookingId: booking.id });
     res.status(StatusCodes.OK).json(booking);
   } catch (error) {

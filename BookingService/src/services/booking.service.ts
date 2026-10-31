@@ -5,7 +5,6 @@ import { redlock } from '../config/redis.config.ts';
 import type { Lock } from 'redlock';
 import type { CreateBookingDto } from '../dto/booking.dto.ts';
 import {
-  cancelBooking,
   confirmBooking,
   createBooking,
   createIdempotencyKey,
@@ -99,16 +98,55 @@ export async function createBookingService(createBookingDTO: CreateBookingDto) {
   }
 }
 
-export async function confirmBookingService(idempotencyKey: string, userEmail?: string) {
-  logger.info('Starting confirm booking transaction', { idempotencyKey });
-  const booking = await prismaClient.$transaction(async (tx) => {
+export async function confirmBookingService(
+  idempotencyKey: string,
+  requestingUserId: number,
+  userEmail?: string
+) {
+  logger.info('Starting confirm booking transaction', { idempotencyKey, requestingUserId });
+  const { booking, isNewConfirmation } = await prismaClient.$transaction(async (tx) => {
     const idempotencyKeyData = await getIdempontentKey(tx, idempotencyKey);
     if (!idempotencyKeyData || !idempotencyKeyData.bookingId) {
       throw new NotFoundError("Idempotency key is not found");
     }
+
+    const currentBooking = await tx.booking.findUnique({
+      where: { id: idempotencyKeyData.bookingId },
+    });
+
+    if (!currentBooking) {
+      throw new NotFoundError(`Booking with id ${idempotencyKeyData.bookingId} not found`);
+    }
+
+    if (currentBooking.userId !== requestingUserId) {
+      throw new ForbiddenError('You do not have permission to confirm this booking');
+    }
+
+    // Idempotent retry: If already finalized, return the confirmed booking without re-confirming
     if (idempotencyKeyData.finalized) {
-      logger.warn('Attempt to reuse a finalized idempotency key', { idempotencyKey });
-      throw new BadRequestError("Idempotency key is already finalized");
+      logger.info('Attempt to reuse a finalized idempotency key, returning confirmed booking', { idempotencyKey });
+      return { booking: currentBooking, isNewConfirmation: false };
+    }
+
+    if (currentBooking.bookingStatus === 'CANCELLED') {
+      throw new BadRequestError('Cannot confirm a cancelled booking');
+    }
+
+    if (currentBooking.bookingStatus !== 'PENDING') {
+      throw new BadRequestError(`Cannot confirm booking in ${currentBooking.bookingStatus} status`);
+    }
+
+    if (new Date() >= currentBooking.checkInDate) {
+      throw new BadRequestError('Cannot confirm a booking that has already started or passed');
+    }
+
+    const isExpired = Date.now() - new Date(currentBooking.createdAt).getTime() > 15 * 60 * 1000;
+    if (isExpired) {
+      await tx.booking.update({
+        where: { id: currentBooking.id },
+        data: { bookingStatus: 'CANCELLED' },
+      });
+      throw new BadRequestError('Booking reservation has expired. Please initiate a new booking.');
     }
 
     const confirmed = await confirmBooking(tx, idempotencyKeyData.bookingId);
@@ -118,13 +156,15 @@ export async function confirmBookingService(idempotencyKey: string, userEmail?: 
       idempotencyKey,
     });
 
-    return confirmed;
+    return { booking: confirmed, isNewConfirmation: true };
   });
 
-  await sendBookingConfirmationNotification(
-    booking,
-    userEmail || `user_${booking.userId}@example.com`
-  );
+  if (isNewConfirmation) {
+    await sendBookingConfirmationNotification(
+      booking,
+      userEmail || `user_${booking.userId}@example.com`
+    );
+  }
 
   return booking;
 }
@@ -152,21 +192,36 @@ export async function cancelBookingService(
   userEmail?: string
 ) {
   logger.info('Attempting to cancel booking', { bookingId, requestingUserId });
-  const booking = await getBookingById(bookingId);
-  if (!booking) {
-    throw new NotFoundError(`Booking with id ${bookingId} not found`);
-  }
-  if (booking.userId !== requestingUserId) {
-    throw new ForbiddenError('You do not have permission to cancel this booking');
-  }
-  if (booking.bookingStatus === 'CANCELLED') {
-    throw new BadRequestError('Booking is already cancelled');
-  }
-  if (new Date() >= booking.checkInDate) {
-    throw new BadRequestError('Cannot cancel a booking that has already started or passed');
-  }
 
-  const cancelled = await cancelBooking(bookingId);
+  const cancelled = await prismaClient.$transaction(async (tx) => {
+    const booking = await tx.booking.findUnique({
+      where: { id: bookingId },
+    });
+
+    if (!booking) {
+      throw new NotFoundError(`Booking with id ${bookingId} not found`);
+    }
+
+    if (booking.userId !== requestingUserId) {
+      throw new ForbiddenError('You do not have permission to cancel this booking');
+    }
+
+    if (booking.bookingStatus === 'CANCELLED') {
+      throw new BadRequestError('Booking is already cancelled');
+    }
+
+    if (new Date() >= booking.checkInDate) {
+      throw new BadRequestError('Cannot cancel a booking that has already started or passed');
+    }
+
+    return await tx.booking.update({
+      where: { id: bookingId },
+      data: {
+        bookingStatus: 'CANCELLED',
+      },
+    });
+  });
+
   logger.info('Booking cancelled successfully', { bookingId });
 
   await sendBookingCancellationNotification(

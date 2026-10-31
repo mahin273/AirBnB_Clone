@@ -14,14 +14,23 @@ export async function createBooking(bookingInput: Prisma.BookingCreateInput){
 export async function findOverlappingBookings(
   propertyId: number,
   checkInDate: Date,
-  checkOutDate: Date
+  checkOutDate: Date,
+  pendingCutoff: Date = new Date(Date.now() - 15 * 60 * 1000)
 ) {
   const overlapping = await prismaClient.booking.findMany({
     where: {
       propertyId,
-      bookingStatus: {
-        in: ['PENDING', 'CONFIRMED'],
-      },
+      OR: [
+        {
+          bookingStatus: 'CONFIRMED',
+        },
+        {
+          bookingStatus: 'PENDING',
+          createdAt: {
+            gte: pendingCutoff,
+          },
+        },
+      ],
       checkInDate: {
         lt: checkOutDate,
       },

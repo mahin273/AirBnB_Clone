@@ -29,6 +29,7 @@ func (br *BookingRouter) Register(r chi.Router) {
 			protected.Get("/*", proxyHandler)
 			protected.Post("/*", proxyHandler)
 			protected.Put("/*", proxyHandler)
+			protected.Patch("/*", proxyHandler)
 			protected.Delete("/*", proxyHandler)
 		})
 	})

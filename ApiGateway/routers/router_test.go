@@ -88,6 +88,58 @@ func TestApartmentRouter_Routes(t *testing.T) {
 		}
 	})
 
+	t.Run("Protected GET /api/v1/apartments/my-apartments rejected with 401 when missing token", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/apartments/my-apartments", nil)
+		rec := httptest.NewRecorder()
+
+		chiMux.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusUnauthorized {
+			t.Errorf("expected 401 Unauthorized, got %d", rec.Code)
+		}
+	})
+
+	t.Run("Protected GET /api/v1/apartments/my-apartments succeeds with valid token", func(t *testing.T) {
+		token := generateTestToken(501, "host@example.com")
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/apartments/my-apartments", nil)
+		req.Header.Set("Authorization", "Bearer "+token)
+		rec := httptest.NewRecorder()
+
+		chiMux.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusOK {
+			t.Errorf("expected 200 OK, got %d", rec.Code)
+		}
+		if lastReceivedPath != "/api/v1/apartments/my-apartments" {
+			t.Errorf("expected path '/api/v1/apartments/my-apartments', got '%s'", lastReceivedPath)
+		}
+		if lastReceivedUserID != "501" {
+			t.Errorf("expected user ID '501', got '%s'", lastReceivedUserID)
+		}
+	})
+
+	t.Run("Protected PATCH /api/v1/rooms/5/status succeeds with valid token", func(t *testing.T) {
+		token := generateTestToken(501, "host@example.com")
+		req := httptest.NewRequest(http.MethodPatch, "/api/v1/rooms/5/status", nil)
+		req.Header.Set("Authorization", "Bearer "+token)
+		rec := httptest.NewRecorder()
+
+		chiMux.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusOK {
+			t.Errorf("expected 200 OK, got %d", rec.Code)
+		}
+		if lastReceivedMethod != http.MethodPatch {
+			t.Errorf("expected method PATCH, got '%s'", lastReceivedMethod)
+		}
+		if lastReceivedPath != "/api/v1/rooms/5/status" {
+			t.Errorf("expected path '/api/v1/rooms/5/status', got '%s'", lastReceivedPath)
+		}
+		if lastReceivedUserID != "501" {
+			t.Errorf("expected user ID '501', got '%s'", lastReceivedUserID)
+		}
+	})
+
 	t.Run("Legacy /properties/42 rewritten to /api/v1/apartments/42", func(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, "/properties/42", nil)
 		rec := httptest.NewRecorder()

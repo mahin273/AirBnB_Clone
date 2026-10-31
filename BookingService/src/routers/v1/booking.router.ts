@@ -23,6 +23,7 @@ bookingRouter.post(
 
 bookingRouter.post(
   '/confirm',
+  requireUserContext,
   validateRequestBody(FinalizeBookingSchema as any),
   confirmBookingController
 );

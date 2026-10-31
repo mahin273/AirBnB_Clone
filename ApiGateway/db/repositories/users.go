@@ -4,6 +4,7 @@ import (
 	"ApiGateway/models"
 	"database/sql"
 	"fmt"
+	"time"
 )
 
 type UserRepository interface {
@@ -44,6 +45,9 @@ func (u *UserRepositoryImpl) Create(user *models.User) error {
 		return err
 	}
 	user.ID = id
+	now := time.Now().UTC()
+	user.CreatedAt = now
+	user.UpdatedAt = now
 	return nil
 }
 

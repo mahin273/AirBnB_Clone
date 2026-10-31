@@ -46,6 +46,10 @@ func NewNotFoundError(message string) *AppError {
 	return NewAppError(http.StatusNotFound, "Not Found", message, nil)
 }
 
+func NewConflictError(message string) *AppError {
+	return NewAppError(http.StatusConflict, "Conflict", message, nil)
+}
+
 func NewUnprocessableEntityError(message string) *AppError {
 	return NewAppError(http.StatusUnprocessableEntity, "Unprocessable Entity", message, nil)
 }

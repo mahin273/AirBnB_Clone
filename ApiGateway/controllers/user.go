@@ -7,6 +7,7 @@ import (
 	"ApiGateway/utils"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -36,6 +37,9 @@ func (uc *UserController) RegisterUser(w http.ResponseWriter, r *http.Request) e
 	}
 
 	if err := uc.UserService.CreateUser(user); err != nil {
+		if strings.Contains(err.Error(), "Duplicate entry") || strings.Contains(err.Error(), "1062") {
+			return utils.NewConflictError("Email address is already registered")
+		}
 		return utils.NewInternalServerError(err)
 	}
 
